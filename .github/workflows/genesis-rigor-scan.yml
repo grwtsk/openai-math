@@ -1,0 +1,53 @@
+name: Genesis rigor scan
+
+on:
+  push:
+    branches:
+      - audit/genesis-rigor-scan-20261009
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-trust-surface:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          submodules: false
+
+      - name: Run deterministic scanner
+        id: scan
+        continue-on-error: true
+        run: |
+          python3 audit/genesis_rigor_scan.py | tee audit/results/console.txt
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Publish job summary
+        if: always()
+        run: |
+          if test -f audit/results/genesis-rigor-scan.md; then
+            cat audit/results/genesis-rigor-scan.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Scanner did not produce its Markdown report." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload immutable scan artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: genesis-rigor-scan-${{ github.sha }}
+          path: audit/results/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce high-confidence policy boundary
+        if: always()
+        run: |
+          test "${{ steps.scan.outputs.exit_code }}" = "0"
