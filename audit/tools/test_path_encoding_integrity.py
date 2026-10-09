@@ -33,9 +33,15 @@ class PathControlsTests(unittest.TestCase):
         self.assertEqual(findings, [])
 
     def test_edge_whitespace_and_reserved_names(self):
-        codes = self.codes(SCAN.component_portability("lean/ CON /file.lean"))
+        # Win32 strips trailing spaces/dots before reserved-name resolution.
+        codes = self.codes(SCAN.component_portability("lean/CON /file.lean"))
         self.assertIn("PATH_EDGE_WHITESPACE", codes)
         self.assertIn("WINDOWS_RESERVED_NAME", codes)
+
+    def test_leading_space_is_not_silently_reclassified_as_reserved(self):
+        codes = self.codes(SCAN.component_portability("lean/ CON/file.lean"))
+        self.assertIn("PATH_EDGE_WHITESPACE", codes)
+        self.assertNotIn("WINDOWS_RESERVED_NAME", codes)
 
     def test_trailing_dot(self):
         codes = self.codes(SCAN.component_portability("lean/OAI./X.lean"))
