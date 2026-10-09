@@ -1,0 +1,267 @@
+name: Quasi-Riemann axiom probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - audit/quasi-riemann-axiom-probe-20261009
+    paths:
+      - audit/lean/QuasiRiemannAxiomProbe.lean
+      - audit/tools/axiom_probe_receipt.py
+      - audit/tools/test_axiom_probe_receipt.py
+      - audit/tools/effective_dependency_receipt.py
+      - audit/tools/test_effective_dependency_receipt.py
+      - .github/workflows/quasi-riemann-axiom-probe.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - audit/lean/QuasiRiemannAxiomProbe.lean
+      - audit/tools/axiom_probe_receipt.py
+      - audit/tools/test_axiom_probe_receipt.py
+      - audit/tools/effective_dependency_receipt.py
+      - audit/tools/test_effective_dependency_receipt.py
+      - .github/workflows/quasi-riemann-axiom-probe.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quasi-riemann-axiom-probe-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  primary-lean-axiom-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      BASE_REVISION: fd4aeeb2ee4fc729c18d98444fed42fd0529eeeb
+      REPORT_DIR: audit/reports/openai-math-fd4aeeb2ee4f
+      GLIBC_TUNABLES: glibc.malloc.mmap_max=0:glibc.malloc.arena_max=1
+    steps:
+      - name: Check out exact audit candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Record candidate and frozen-source identities
+        run: |
+          set -euo pipefail
+          mkdir -p "$REPORT_DIR"
+          git merge-base --is-ancestor "$BASE_REVISION" HEAD
+          git rev-parse HEAD
+          git rev-parse HEAD^{tree}
+          git rev-parse HEAD:lean
+          git rev-parse "$BASE_REVISION"^{tree}
+          git rev-parse "$BASE_REVISION":lean
+          sha256sum audit/lean/QuasiRiemannAxiomProbe.lean
+          sha256sum audit/tools/axiom_probe_receipt.py
+          sha256sum audit/tools/effective_dependency_receipt.py
+          sha256sum .github/workflows/quasi-riemann-axiom-probe.yml
+
+      - name: Run hostile receipt tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v \
+            audit/tools/test_axiom_probe_receipt.py \
+            audit/tools/test_effective_dependency_receipt.py
+
+      - name: Install exact Lean toolchain
+        id: lean_setup
+        continue-on-error: true
+        uses: leanprover/lean-action@f061402b660e0c34644504b324e830f2991d4865
+        with:
+          auto-config: false
+          build: false
+          test: false
+          lint: false
+          use-mathlib-cache: false
+          use-github-cache: false
+          lake-package-directory: lean
+
+      - name: Resolve pinned and patched Lake dependencies
+        id: lake_update
+        if: always()
+        run: |
+          set +e
+          set -o pipefail
+          mkdir -p "$REPORT_DIR"
+          (cd lean && lake update) 2>&1 | tee "$REPORT_DIR/lake-update.log"
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Verify Lean source subtree remains frozen
+        id: source_identity
+        if: always()
+        run: |
+          set +e
+          mkdir -p "$REPORT_DIR"
+          audit_head=$(git rev-parse HEAD)
+          audit_tree=$(git rev-parse HEAD^{tree})
+          audit_lean_tree=$(git rev-parse HEAD:lean)
+          frozen_tree=$(git rev-parse "$BASE_REVISION"^{tree})
+          frozen_lean_tree=$(git rev-parse "$BASE_REVISION":lean)
+          status=0
+          if test "$audit_lean_tree" != "$frozen_lean_tree"; then
+            status=1
+          fi
+          if ! git diff --quiet "$BASE_REVISION" -- lean; then
+            status=1
+          fi
+          python3 - "$REPORT_DIR/source-identity.json" \
+            "$BASE_REVISION" "$frozen_tree" "$frozen_lean_tree" \
+            "$audit_head" "$audit_tree" "$audit_lean_tree" "$status" <<'PY'
+          import json, sys
+          path, base, base_tree, base_lean, head, head_tree, head_lean, status = sys.argv[1:]
+          data = {
+              "schema_version": "FrozenLeanSourceIdentity/1",
+              "frozen_base_revision": base,
+              "frozen_base_tree": base_tree,
+              "frozen_lean_tree": base_lean,
+              "audit_head_commit": head,
+              "audit_head_tree": head_tree,
+              "audit_lean_tree": head_lean,
+              "committed_lean_subtree_matches": base_lean == head_lean,
+              "worktree_lean_differs": status != "0",
+          }
+          with open(path, "w", encoding="utf-8") as f:
+              json.dump(data, f, indent=2, sort_keys=True)
+              f.write("\n")
+          PY
+          git diff -- lean > "$REPORT_DIR/frozen-lean-worktree.diff"
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Record effective post-patch dependency trees
+        id: dependency_receipt
+        if: always()
+        run: |
+          set +e
+          mkdir -p "$REPORT_DIR"
+          frozen_tree=$(git rev-parse "$BASE_REVISION"^{tree})
+          frozen_lean_tree=$(git rev-parse "$BASE_REVISION":lean)
+          audit_head=$(git rev-parse HEAD)
+          audit_tree=$(git rev-parse HEAD^{tree})
+          audit_lean_tree=$(git rev-parse HEAD:lean)
+          python3 audit/tools/effective_dependency_receipt.py \
+            --lean-dir lean \
+            --output "$REPORT_DIR/effective-lake-dependencies.json" \
+            --markdown-output "$REPORT_DIR/effective-lake-dependencies.md" \
+            --frozen-base-revision "$BASE_REVISION" \
+            --frozen-base-tree "$frozen_tree" \
+            --frozen-lean-tree "$frozen_lean_tree" \
+            --audit-head-commit "$audit_head" \
+            --audit-head-tree "$audit_tree" \
+            --audit-lean-tree "$audit_lean_tree" \
+            2>&1 | tee "$REPORT_DIR/effective-lake-dependencies.console.log"
+          status=${PIPESTATUS[0]}
+          if test -f "$REPORT_DIR/effective-lake-dependencies.json"; then
+            sha=$(sha256sum "$REPORT_DIR/effective-lake-dependencies.json" | awk '{print $1}')
+          else
+            sha=MISSING
+          fi
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Fetch named Mathlib cache input
+        id: cache
+        if: always()
+        run: |
+          set +e
+          set -o pipefail
+          (cd lean && lake exe cache get) 2>&1 | tee "$REPORT_DIR/cache-get.log"
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Build exact solution module
+        id: build
+        if: always()
+        run: |
+          set +e
+          set -o pipefail
+          (cd lean && lake build OAI.NumberTheory.DirichletL.Nonvanishing) \
+            2>&1 | tee "$REPORT_DIR/quasi-riemann-module-build.log"
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Run exact theorem type and axiom probe
+        id: probe
+        if: always()
+        run: |
+          set +e
+          set -o pipefail
+          (cd lean && lake env lean ../audit/lean/QuasiRiemannAxiomProbe.lean) \
+            2>&1 | tee "$REPORT_DIR/quasi-riemann-axiom-probe.log"
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Generate theorem receipt
+        id: theorem_receipt
+        if: always()
+        run: |
+          set +e
+          frozen_tree=$(git rev-parse "$BASE_REVISION"^{tree})
+          frozen_lean_tree=$(git rev-parse "$BASE_REVISION":lean)
+          audit_head=$(git rev-parse HEAD)
+          audit_tree=$(git rev-parse HEAD^{tree})
+          audit_lean_tree=$(git rev-parse HEAD:lean)
+          toolchain=$(tr -d '\r\n' < lean/lean-toolchain)
+          log="$REPORT_DIR/quasi-riemann-axiom-probe.log"
+          test -f "$log" || : > "$log"
+          python3 audit/tools/axiom_probe_receipt.py \
+            --log "$log" \
+            --output-dir "$REPORT_DIR" \
+            --frozen-base-revision "$BASE_REVISION" \
+            --frozen-base-tree "$frozen_tree" \
+            --frozen-lean-tree "$frozen_lean_tree" \
+            --audit-head-commit "$audit_head" \
+            --audit-head-tree "$audit_tree" \
+            --audit-lean-tree "$audit_lean_tree" \
+            --lean-toolchain "$toolchain" \
+            --dependency-receipt-sha256 "${{ steps.dependency_receipt.outputs.sha256 }}" \
+            2>&1 | tee "$REPORT_DIR/quasi-riemann-axiom-receipt.console.log"
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Publish accessible summary
+        if: always()
+        run: |
+          for report in \
+            "$REPORT_DIR/effective-lake-dependencies.md" \
+            "$REPORT_DIR/quasi-riemann-axiom-probe.md"
+          do
+            if test -f "$report"; then
+              cat "$report" >> "$GITHUB_STEP_SUMMARY"
+              printf '\n' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+      - name: Upload immutable evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: quasi-riemann-axiom-probe-${{ github.event.pull_request.head.sha || github.sha }}
+          path: audit/reports/openai-math-fd4aeeb2ee4f/
+          if-no-files-found: error
+          retention-days: 90
+          include-hidden-files: false
+
+      - name: Enforce theorem-receipt boundary
+        if: always()
+        run: |
+          set -euo pipefail
+          test "${{ steps.lean_setup.outcome }}" = success
+          test "${{ steps.lake_update.outputs.exit_code }}" = 0
+          test "${{ steps.source_identity.outputs.exit_code }}" = 0
+          test "${{ steps.dependency_receipt.outputs.exit_code }}" = 0
+          test "${{ steps.build.outputs.exit_code }}" = 0
+          test "${{ steps.probe.outputs.exit_code }}" = 0
+          test "${{ steps.theorem_receipt.outputs.exit_code }}" = 0
