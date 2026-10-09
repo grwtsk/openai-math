@@ -1,0 +1,75 @@
+name: Bootstrap integrity-rigor audit capture
+
+on:
+  push:
+    branches:
+      - audit/integrity-rigor-capture-20261009
+    paths:
+      - audit/captures/2026-10-09-integrity-rigor/bootstrap_capture.py
+      - .github/workflows/bootstrap-integrity-rigor-capture.yml
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: bootstrap-integrity-rigor-capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out exact capture branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: audit/integrity-rigor-capture-20261009
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify mirror ancestry
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor fd4aeeb2ee4fc729c18d98444fed42fd0529eeeb HEAD
+          test "$(git rev-parse origin/main)" = fd4aeeb2ee4fc729c18d98444fed42fd0529eeeb
+
+      - name: Materialize capture and verify raw artifacts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 audit/captures/2026-10-09-integrity-rigor/bootstrap_capture.py
+
+      - name: Commit reviewable capture files
+        run: |
+          set -euo pipefail
+          git config user.name 'grwtsk audit capture'
+          git config user.email 'soundofset+grwtsk@gmail.com'
+          git add audit/captures/2026-10-09-integrity-rigor
+          git reset -- audit/captures/2026-10-09-integrity-rigor/raw-workflow-artifacts \
+            audit/captures/2026-10-09-integrity-rigor/integrity-rigor-capture-bundle.zip \
+            audit/captures/2026-10-09-integrity-rigor/RELEASE_ASSET_MANIFEST.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'audit: capture integrity and rigor evidence'
+            git push origin HEAD:audit/integrity-rigor-capture-20261009
+          fi
+          echo "capture_sha=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Publish fork-side audit prerelease assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=audit-capture-2026-10-09
+          notes='Fork-side integrity and rigor audit capture. This is not an upstream OpenAI release and is not a repository-wide correctness certificate.'
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --target "$capture_sha" --title 'Fork-side audit capture — 2026-10-09' --notes "$notes" --prerelease
+          else
+            gh release create "$tag" --target "$capture_sha" --title 'Fork-side audit capture — 2026-10-09' --notes "$notes" --prerelease
+          fi
+          gh release upload "$tag" \
+            audit/captures/2026-10-09-integrity-rigor/raw-workflow-artifacts/*.zip \
+            audit/captures/2026-10-09-integrity-rigor/integrity-rigor-capture-bundle.zip \
+            audit/captures/2026-10-09-integrity-rigor/RELEASE_ASSET_MANIFEST.json \
+            --clobber
