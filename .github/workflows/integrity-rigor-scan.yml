@@ -1,0 +1,60 @@
+name: Integrity and rigor scan
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - audit/integrity-rigor-scan-20261009
+    paths:
+      - audit/tools/integrity_rigor_scan.py
+      - .github/workflows/integrity-rigor-scan.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: integrity-rigor-scan-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  static-integrity-scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out exact audit branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Record runtime
+        run: |
+          python3 --version
+          git --version
+          git rev-parse HEAD
+          git rev-parse fd4aeeb2ee4fc729c18d98444fed42fd0529eeeb^{tree}
+
+      - name: Run deterministic scanner
+        run: python3 audit/tools/integrity_rigor_scan.py | tee /tmp/integrity-scan-summary.json
+
+      - name: Add human-readable report to job summary
+        run: cat audit/reports/openai-math-fd4aeeb2ee4/integrity-scan.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload immutable report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openai-math-integrity-scan-fd4aeeb2ee4
+          path: audit/reports/openai-math-fd4aeeb2ee4/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Commit generated receipts to the audit branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audit/reports/openai-math-fd4aeeb2ee4/
+          if git diff --cached --quiet; then
+            echo "Reports unchanged."
+          else
+            git commit -m "audit: record integrity scan receipts [skip ci]"
+            git push origin HEAD:audit/integrity-rigor-scan-20261009
+          fi
