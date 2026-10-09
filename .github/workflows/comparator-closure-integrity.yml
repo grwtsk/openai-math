@@ -1,0 +1,89 @@
+name: Comparator closure integrity
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - audit/comparator-closure-integrity-20261009
+    paths:
+      - audit/tools/comparator_closure_scan.py
+      - audit/tools/test_comparator_closure_scan.py
+      - .github/workflows/comparator-closure-integrity.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - audit/tools/comparator_closure_scan.py
+      - audit/tools/test_comparator_closure_scan.py
+      - .github/workflows/comparator-closure-integrity.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: comparator-closure-integrity-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  target-to-solution-closure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Record source and scanner identities
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          git rev-parse HEAD^{tree}
+          git rev-parse fd4aeeb2ee4fc729c18d98444fed42fd0529eeeb^{tree}
+          python3 --version
+          git --version
+          sha256sum audit/tools/comparator_closure_scan.py
+          sha256sum audit/tools/test_comparator_closure_scan.py
+          sha256sum .github/workflows/comparator-closure-integrity.yml
+
+      - name: Run hostile closure tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v audit/tools/test_comparator_closure_scan.py
+
+      - name: Run deterministic closure scan
+        id: scan
+        continue-on-error: true
+        run: |
+          set +e
+          set -o pipefail
+          python3 audit/tools/comparator_closure_scan.py | tee /tmp/comparator-closure-summary.json
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Publish accessible report
+        if: always()
+        run: |
+          report=audit/reports/openai-math-fd4aeeb2ee4f/comparator-closure-integrity.md
+          if test -f "$report"; then
+            cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Scanner did not produce its Markdown report." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload immutable reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: comparator-closure-integrity-${{ github.event.pull_request.head.sha || github.sha }}
+          path: audit/reports/openai-math-fd4aeeb2ee4f/
+          if-no-files-found: error
+          retention-days: 90
+          include-hidden-files: false
+
+      - name: Enforce closure policy boundary
+        if: always()
+        run: test "${{ steps.scan.outputs.exit_code }}" = "0"
