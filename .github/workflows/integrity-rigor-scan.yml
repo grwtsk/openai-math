@@ -20,7 +20,7 @@ permissions:
 
 concurrency:
   group: integrity-rigor-scan-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   static-integrity-scan:
@@ -52,14 +52,14 @@ jobs:
           python3 audit/tools/integrity_rigor_scan.py | tee /tmp/integrity-scan-summary.json
 
       - name: Add human-readable report to job summary
-        run: cat audit/reports/openai-math-fd4aeeb2ee4/integrity-scan.md >> "$GITHUB_STEP_SUMMARY"
+        run: cat audit/reports/openai-math-fd4aeeb2ee4f/integrity-scan.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload immutable report artifact
         # actions/upload-artifact v4, pinned rather than using a moving major tag.
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: openai-math-integrity-scan-fd4aeeb2ee4-${{ github.event.pull_request.head.sha || github.sha }}
-          path: audit/reports/openai-math-fd4aeeb2ee4/
+          name: openai-math-integrity-scan-fd4aeeb2ee4f-${{ github.event.pull_request.head.sha || github.sha }}
+          path: audit/reports/openai-math-fd4aeeb2ee4f/
           if-no-files-found: error
           retention-days: 90
           include-hidden-files: false
