@@ -7,12 +7,14 @@ on:
       - audit/integrity-rigor-scan-20261009
     paths:
       - audit/tools/integrity_rigor_scan.py
+      - audit/tools/test_integrity_rigor_scan.py
       - .github/workflows/integrity-rigor-scan.yml
   pull_request:
     branches:
       - main
     paths:
       - audit/tools/integrity_rigor_scan.py
+      - audit/tools/test_integrity_rigor_scan.py
       - .github/workflows/integrity-rigor-scan.yml
 
 permissions:
@@ -45,6 +47,12 @@ jobs:
           git rev-parse fd4aeeb2ee4fc729c18d98444fed42fd0529eeeb^{tree}
           sha256sum .github/workflows/integrity-rigor-scan.yml
           sha256sum audit/tools/integrity_rigor_scan.py
+          sha256sum audit/tools/test_integrity_rigor_scan.py
+
+      - name: Run hostile scanner tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v audit/tools/test_integrity_rigor_scan.py
 
       - name: Run deterministic scanner
         run: |
