@@ -27,7 +27,10 @@ concurrency:
 jobs:
   static-integrity-scan:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # The frozen tree contains more than 122,000 Lean files. The prior
+    # 45-minute ceiling terminated the scanner during normal traversal and
+    # produced no receipt; cancellation is operational, not mathematical.
+    timeout-minutes: 120
     steps:
       - name: Check out exact candidate head
         # actions/checkout v7.0.1, pinned rather than using a moving tag.
