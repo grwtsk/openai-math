@@ -29,6 +29,16 @@ BEGIN = "AUDIT_TARGET_BEGIN|"
 END = "AUDIT_TARGET_END|"
 WITNESS_BEGIN = "AUDIT_WITNESS_BEGIN|source-parameters"
 WITNESS_END = "AUDIT_WITNESS_END|source-parameters"
+REQUIRED_WITNESS_TOKENS = (
+    "OAI.KaplanskyCounterexample.FiniteGeometry.sourceQ",
+    "OAI.KaplanskyCounterexample.FiniteGeometry.sourcePrime",
+    "OAI.KaplanskyCounterexample.Prescription.selectedH",
+    "OAI.KaplanskyCounterexample.Prescription.selectedPair",
+    "OAI.KaplanskyCounterexample.Prescription.Output.Coeff",
+    "OAI.KaplanskyCounterexample.Prescription.Output.G",
+    "OAI.KaplanskyCounterexample.Prescription.Output.a",
+    "OAI.KaplanskyCounterexample.Prescription.Output.b",
+)
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -141,10 +151,7 @@ def make_report(text: str, metadata: dict[str, Any]) -> tuple[dict[str, Any], li
         })
 
     if witness_projection:
-        required_tokens = (
-            "sourceQ", "sourcePrime", "selectedH", "selectedPair", "Coeff", "G", " a", " b",
-        )
-        missing = [token for token in required_tokens if token not in witness_projection]
+        missing = [token for token in REQUIRED_WITNESS_TOKENS if token not in witness_projection]
         if missing:
             violations.append({
                 "code": "WITNESS_PROJECTION_INCOMPLETE",
@@ -157,6 +164,7 @@ def make_report(text: str, metadata: dict[str, Any]) -> tuple[dict[str, Any], li
         "target_count": len(TARGETS),
         "resolved_target_count": len(results),
         "targets": results,
+        "required_witness_tokens": list(REQUIRED_WITNESS_TOKENS),
         "witness_projection": witness_projection,
         "witness_projection_sha256": sha256_bytes(witness_projection.encode("utf-8")),
         "violations": violations,
