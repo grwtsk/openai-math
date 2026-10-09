@@ -16,7 +16,7 @@ on:
       - .github/workflows/integrity-rigor-scan.yml
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: integrity-rigor-scan-${{ github.ref }}
@@ -27,41 +27,39 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - name: Check out exact audit branch
-        uses: actions/checkout@v4
+      - name: Check out exact candidate head
+        # actions/checkout v4, pinned rather than using a moving major tag.
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Record runtime
+      - name: Record runtime and source identities
         run: |
+          set -euo pipefail
           python3 --version
           git --version
           git rev-parse HEAD
+          git rev-parse HEAD^{tree}
           git rev-parse fd4aeeb2ee4fc729c18d98444fed42fd0529eeeb^{tree}
+          sha256sum .github/workflows/integrity-rigor-scan.yml
+          sha256sum audit/tools/integrity_rigor_scan.py
 
       - name: Run deterministic scanner
-        run: python3 audit/tools/integrity_rigor_scan.py | tee /tmp/integrity-scan-summary.json
+        run: |
+          set -euo pipefail
+          python3 audit/tools/integrity_rigor_scan.py | tee /tmp/integrity-scan-summary.json
 
       - name: Add human-readable report to job summary
         run: cat audit/reports/openai-math-fd4aeeb2ee4/integrity-scan.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload immutable report artifact
-        uses: actions/upload-artifact@v4
+        # actions/upload-artifact v4, pinned rather than using a moving major tag.
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: openai-math-integrity-scan-fd4aeeb2ee4
+          name: openai-math-integrity-scan-fd4aeeb2ee4-${{ github.event.pull_request.head.sha || github.sha }}
           path: audit/reports/openai-math-fd4aeeb2ee4/
           if-no-files-found: error
           retention-days: 90
-
-      - name: Commit generated receipts to the audit branch
-        if: github.event_name != 'pull_request'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add audit/reports/openai-math-fd4aeeb2ee4/
-          if git diff --cached --quiet; then
-            echo "Reports unchanged."
-          else
-            git commit -m "audit: record integrity scan receipts [skip ci]"
-            git push origin HEAD:audit/integrity-rigor-scan-20261009
-          fi
+          include-hidden-files: false
