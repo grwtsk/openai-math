@@ -20,11 +20,11 @@ jobs:
           fetch-depth: 1
           submodules: false
 
-      - name: Run deterministic scanner
+      - name: Run deterministic scanner v2
         id: scan
         continue-on-error: true
         run: |
-          python3 audit/genesis_rigor_scan.py | tee audit/results/console.txt
+          python3 audit/genesis_rigor_scan_v2.py | tee audit/results/console.txt
           status=${PIPESTATUS[0]}
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
@@ -32,8 +32,8 @@ jobs:
       - name: Publish job summary
         if: always()
         run: |
-          if test -f audit/results/genesis-rigor-scan.md; then
-            cat audit/results/genesis-rigor-scan.md >> "$GITHUB_STEP_SUMMARY"
+          if test -f audit/results/genesis-rigor-scan-v2.md; then
+            cat audit/results/genesis-rigor-scan-v2.md >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Scanner did not produce its Markdown report." >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -42,7 +42,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: genesis-rigor-scan-${{ github.sha }}
+          name: genesis-rigor-scan-v2-${{ github.sha }}
           path: audit/results/
           if-no-files-found: error
           retention-days: 90
