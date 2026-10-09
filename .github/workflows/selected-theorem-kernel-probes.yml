@@ -81,8 +81,11 @@ jobs:
           git rev-parse fd4aeeb2ee4fc729c18d98444fed42fd0529eeeb^{tree}
           python3 --version
           git --version
-          lean --version
-          lake --version
+          (
+            cd lean
+            lean --version
+            lake --version
+          )
           sha256sum lean/lakefile.lean
           sha256sum lean/lake-manifest.json
           sha256sum lean/lean-toolchain
