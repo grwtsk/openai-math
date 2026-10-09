@@ -57,11 +57,11 @@ jobs:
           exit 0
 
       - name: Publish accessible report
-        if: always()
+        if: ${{ always() && hashFiles('audit/reports/openai-math-fd4aeeb2ee4f/path-encoding-integrity.md') != '' }}
         run: cat audit/reports/openai-math-fd4aeeb2ee4f/path-encoding-integrity.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload immutable reports
-        if: always()
+        if: ${{ always() && hashFiles('audit/reports/openai-math-fd4aeeb2ee4f/path-encoding-integrity.json') != '' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: path-encoding-integrity-${{ github.sha }}
