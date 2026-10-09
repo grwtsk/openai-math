@@ -8,6 +8,8 @@ on:
     paths:
       - audit/tools/theorem_closure_scan.py
       - audit/tools/test_theorem_closure_scan.py
+      - audit/tools/review_theorem_closure_receipt.py
+      - audit/tools/test_review_theorem_closure_receipt.py
       - .github/workflows/theorem-closure-receipts.yml
 
 permissions:
@@ -39,12 +41,16 @@ jobs:
           git --version
           sha256sum audit/tools/theorem_closure_scan.py
           sha256sum audit/tools/test_theorem_closure_scan.py
+          sha256sum audit/tools/review_theorem_closure_receipt.py
+          sha256sum audit/tools/test_review_theorem_closure_receipt.py
           sha256sum .github/workflows/theorem-closure-receipts.yml
 
       - name: Run hostile scanner tests
         run: |
           set -euo pipefail
-          python3 -m unittest -v audit/tools/test_theorem_closure_scan.py
+          python3 -m unittest -v \
+            audit/tools/test_theorem_closure_scan.py \
+            audit/tools/test_review_theorem_closure_receipt.py
 
       - name: Generate bounded closure receipts
         id: scan
@@ -56,13 +62,30 @@ jobs:
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Publish accessible report
+      - name: Interpret aggregate and declaration roots
+        id: review
+        if: always()
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          python3 audit/tools/review_theorem_closure_receipt.py | tee /tmp/theorem-closure-review-summary.json
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Publish accessible reports
         if: always()
         run: |
           if test -f audit/results/theorem-closure/theorem-closure-receipt.md; then
             cat audit/results/theorem-closure/theorem-closure-receipt.md >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Scanner did not produce its Markdown receipt." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          printf '\n---\n\n' >> "$GITHUB_STEP_SUMMARY"
+          if test -f audit/results/theorem-closure/theorem-closure-interpretation-v2.md; then
+            cat audit/results/theorem-closure/theorem-closure-interpretation-v2.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Interpretation review did not produce its Markdown receipt." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Upload immutable receipts
@@ -77,4 +100,6 @@ jobs:
 
       - name: Enforce high-confidence policy boundary
         if: always()
-        run: test "${{ steps.scan.outputs.exit_code }}" = "0"
+        run: |
+          test "${{ steps.scan.outputs.exit_code }}" = "0"
+          test "${{ steps.review.outputs.exit_code }}" = "0"
