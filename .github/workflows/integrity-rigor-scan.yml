@@ -30,8 +30,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check out exact candidate head
-        # actions/checkout v4, pinned rather than using a moving major tag.
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        # actions/checkout v7.0.1, pinned rather than using a moving tag.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
@@ -48,6 +48,8 @@ jobs:
           sha256sum .github/workflows/integrity-rigor-scan.yml
           sha256sum audit/tools/integrity_rigor_scan.py
           sha256sum audit/tools/test_integrity_rigor_scan.py
+          cat /etc/os-release
+          uname -a
 
       - name: Run hostile scanner tests
         run: |
@@ -63,8 +65,8 @@ jobs:
         run: cat audit/reports/openai-math-fd4aeeb2ee4f/integrity-scan.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload immutable report artifact
-        # actions/upload-artifact v4, pinned rather than using a moving major tag.
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        # actions/upload-artifact v7.0.2, pinned rather than using a moving tag.
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: openai-math-integrity-scan-fd4aeeb2ee4f-${{ github.event.pull_request.head.sha || github.sha }}
           path: audit/reports/openai-math-fd4aeeb2ee4f/
