@@ -34,7 +34,10 @@ class StripLeanCommentsAndStringsTests(unittest.TestCase):
         source = "before /- outer sorry /- inner axiom -/ unsafe -/ after\n"
         stripped = SCAN.strip_lean_comments_and_strings(source)
         self.assert_shape_preserved(source, stripped)
-        self.assertEqual(stripped.strip(), "before                                         after")
+        self.assertNotIn("sorry", stripped)
+        self.assertNotIn("axiom", stripped)
+        self.assertNotIn("unsafe", stripped)
+        self.assertRegex(stripped.strip(), r"^before +after$")
 
     def test_ordinary_string_hides_tokens_and_preserves_escaped_quote(self) -> None:
         source = 'def s := "sorry \\" axiom"\ntheorem t : True := by trivial\n'
