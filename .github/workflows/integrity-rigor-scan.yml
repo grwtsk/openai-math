@@ -21,7 +21,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: integrity-rigor-scan-${{ github.ref }}
+  # A push to the audit branch and its pull_request event represent the same
+  # candidate. Use the head branch name for both so only one expensive
+  # whole-corpus traversal survives.
+  group: integrity-rigor-scan-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
