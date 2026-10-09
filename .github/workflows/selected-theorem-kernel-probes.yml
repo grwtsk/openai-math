@@ -1,0 +1,148 @@
+name: Selected theorem primary-kernel probes
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - audit/theorem-kernel-probes-20261009
+    paths:
+      - audit/lean/**
+      - audit/tools/effective_dependency_manifest.py
+      - audit/tools/test_effective_dependency_manifest.py
+      - audit/tools/run_theorem_kernel_probe.py
+      - audit/tools/test_run_theorem_kernel_probe.py
+      - .github/workflows/selected-theorem-kernel-probes.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: selected-theorem-kernel-probes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  theorem-probe:
+    name: ${{ matrix.key }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - key: quasi-riemann-zeta
+            module: OAI.NumberTheory.DirichletL.Nonvanishing
+            theorem: OAI.riemannZeta_ne_zero_of_seven_eighths_lt_re
+            probe: audit/lean/QuasiRiemannAxiomProbe.lean
+          - key: landau-siegel-geometric
+            module: OAI.NumberTheory.SiegelZeros.Conclusions.Theorem
+            theorem: OAI.SiegelZeros.WeightedTorusJets.exists_absolute_real_zero_gap
+            probe: audit/lean/LandauSiegelGeometricAxiomProbe.lean
+          - key: landau-siegel-analytic
+            module: OAI.NumberTheory.SiegelZeros.Characters.DirichletRealZeroBoundProof
+            theorem: OAI.SiegelZeros.WeightedTorusJets.dirichletRealZeroBound_proof
+            probe: audit/lean/LandauSiegelAnalyticAxiomProbe.lean
+    env:
+      LEAN_ABORT_ON_PANIC: "1"
+      LEAN_NUM_THREADS: "1"
+      GLIBC_TUNABLES: glibc.malloc.mmap_max=0:glibc.malloc.arena_max=1
+
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run hostile receipt tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v \
+            audit/tools/test_effective_dependency_manifest.py \
+            audit/tools/test_run_theorem_kernel_probe.py
+
+      - name: Configure exact Lean toolchain
+        uses: leanprover/lean-action@f061402b660e0c34644504b324e830f2991d4865
+        with:
+          auto-config: false
+          build: false
+          test: false
+          lint: false
+          use-github-cache: false
+          use-mathlib-cache: false
+          lake-package-directory: lean
+
+      - name: Record runner and tool identities
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          git rev-parse HEAD^{tree}
+          git rev-parse fd4aeeb2ee4fc729c18d98444fed42fd0529eeeb^{tree}
+          python3 --version
+          git --version
+          lean --version
+          lake --version
+          sha256sum lean/lakefile.lean
+          sha256sum lean/lake-manifest.json
+          sha256sum lean/lean-toolchain
+          sha256sum "${{ matrix.probe }}"
+          sha256sum audit/tools/effective_dependency_manifest.py
+          sha256sum audit/tools/run_theorem_kernel_probe.py
+          sha256sum .github/workflows/selected-theorem-kernel-probes.yml
+          cat /etc/os-release
+          uname -a
+
+      - name: Run bounded theorem probe
+        id: probe
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          python3 audit/tools/run_theorem_kernel_probe.py \
+            --key "${{ matrix.key }}" \
+            --module "${{ matrix.module }}" \
+            --theorem "${{ matrix.theorem }}" \
+            --probe "${{ matrix.probe }}" \
+            --output-dir "audit/results/kernel-probes/${{ matrix.key }}"
+          status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Publish probe summary
+        if: always()
+        run: |
+          receipt="audit/results/kernel-probes/${{ matrix.key }}/kernel-probe-receipt.json"
+          if test -f "$receipt"; then
+            python3 - "$receipt" >> "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json, sys
+          data = json.load(open(sys.argv[1], encoding="utf-8"))
+          print(f"# {data['key']} primary-kernel probe")
+          print()
+          print(f"- Classification: `{data['classification']}`")
+          print(f"- Module: `{data['module']}`")
+          print(f"- Theorem: `{data['theorem']}`")
+          print(f"- Observed axioms: `{data['observed_axioms']}`")
+          print(f"- Unexpected axioms: `{data['unexpected_axioms']}`")
+          print(f"- Cache command exit: `{data['mathlib_cache_exit_code']}`")
+          if data['blocking_failures']:
+              print("- Blocking failures:")
+              for item in data['blocking_failures']:
+                  print(f"  - {item}")
+          PY
+          else
+            echo "Probe did not produce a receipt." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload immutable probe receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: theorem-kernel-probe-${{ matrix.key }}-${{ github.sha }}
+          path: audit/results/kernel-probes/${{ matrix.key }}/
+          if-no-files-found: error
+          retention-days: 90
+          include-hidden-files: false
+
+      - name: Enforce primary-kernel probe boundary
+        if: always()
+        run: test "${{ steps.probe.outputs.exit_code }}" = "0"
