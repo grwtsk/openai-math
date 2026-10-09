@@ -1,0 +1,86 @@
+diff --git a/audit/tools/theorem_closure_scan.py b/audit/tools/theorem_closure_scan.py
+index d98c774..0000000 100755
+--- a/audit/tools/theorem_closure_scan.py
++++ b/audit/tools/theorem_closure_scan.py
+@@ -446,7 +446,7 @@ TOKEN_SPECS: tuple[tuple[str, str, re.Pattern[str], str], ...] = (
+         "medium",
+         "lean_elab_api",
+         re.compile(r"\bLean\.(?:Elab|Meta|Core)\b"),
+-        "Direct elaborator/metaprogramming API use.",
++        "Direct source reference to Lean elaborator/metaprogramming APIs.",
+@@ -500,6 +500,11 @@ DECLARATION_PATTERNS: tuple[tuple[str, str, re.Pattern[str], str], ...] = (
+ )
++
++ELABORATION_TOOL_IMPORT_RE = re.compile(
++    r"^\s*(?:(?:public|private)\s+)?import\s+"
++    r"(Lean\.(?:Elab|Meta|Core)(?:\.[^\s]+)?)\s*$"
++)
+@@ -562,6 +567,22 @@ def scan_source(
+     for line_no, (raw_line, stripped_line) in enumerate(
+         zip(raw_lines, stripped_lines, strict=False), 1
+     ):
++        elaboration_import = ELABORATION_TOOL_IMPORT_RE.match(stripped_line)
++        if elaboration_import:
++            findings.append(
++                make_finding(
++                    severity="review",
++                    category="elaboration_tool_import",
++                    module=module,
++                    path=path,
++                    line_no=line_no,
++                    symbol=elaboration_import.group(1),
++                    snippet=raw_line,
++                    note=(
++                        "Elaboration or tactic implementation dependency. This is not, "
++                        "by itself, direct source use of the metaprogramming API."
++                    ),
++                )
++            )
++
+         for severity, category, pattern, note in DECLARATION_PATTERNS:
+@@ -585,6 +606,8 @@ def scan_source(
+ 
+         for severity, category, pattern, note in TOKEN_SPECS:
++            if category == "lean_elab_api" and elaboration_import:
++                continue
+             for match in pattern.finditer(stripped_line):
+@@ -821,7 +844,7 @@ def main() -> int:
+-        "schema_version": "TheoremClosureReceipt/1",
++        "schema_version": "TheoremClosureReceipt/2",
+diff --git a/audit/tools/test_theorem_closure_scan.py b/audit/tools/test_theorem_closure_scan.py
+--- a/audit/tools/test_theorem_closure_scan.py
++++ b/audit/tools/test_theorem_closure_scan.py
+@@ -1,3 +1,41 @@
++# Add alongside the existing tests.
++
++class MetaprogrammingClassificationTests(unittest.TestCase):
++    def categories(self, source: str) -> set[str]:
++        with tempfile.TemporaryDirectory() as td:
++            path = Path(td) / "M.lean"
++            path.write_text(source, encoding="utf-8")
++            findings, _ = SCAN.scan_source(
++                module="OAI.M",
++                path=path,
++                raw=source,
++                imports=SCAN.parse_imports(source)[0],
++            )
++        return {finding.category for finding in findings}
++
++    def test_tactic_import_is_not_direct_api_use(self) -> None:
++        categories = self.categories("import Lean.Elab.Tactic.Omega\n")
++        self.assertIn("elaboration_tool_import", categories)
++        self.assertNotIn("lean_elab_api", categories)
++
++    def test_direct_api_reference_remains_visible(self) -> None:
++        categories = self.categories(
++            "import Mathlib\n"
++            "def inspect (ctx : Lean.Meta.Context) : Nat := 0\n"
++        )
++        self.assertIn("lean_elab_api", categories)
++
++    def test_run_tac_remains_separate(self) -> None:
++        categories = self.categories(
++            "theorem t : True := by\n  run_tac Lean.Elab.Tactic.closeUsingOrAdmit `True\n"
++        )
++        self.assertIn("run_tac", categories)
++        self.assertIn("lean_elab_api", categories)

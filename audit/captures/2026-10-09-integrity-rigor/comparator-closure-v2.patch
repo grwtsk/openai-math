@@ -1,0 +1,250 @@
+diff --git a/audit/tools/comparator_closure_scan.py b/audit/tools/comparator_closure_scan.py
+index 48402eb..0000000 100755
+--- a/audit/tools/comparator_closure_scan.py
++++ b/audit/tools/comparator_closure_scan.py
+@@ -34,6 +34,7 @@ class Declaration:
+     module: str
+     path: str
+     line: int
++    visibility: str = "regular"
+@@ -191,10 +192,31 @@ def parse_imports(clean: str) -> list[str]:
+     return result
+ 
+ 
+ def _identifier_segments(token: str) -> list[str]:
++    """Split a Lean name without splitting dots inside guillemet identifiers."""
+     token = token.strip()
+     if token.startswith("_root_."):
+         token = token[len("_root_."):]
+-    return [part for part in token.split(".") if part]
++    result: list[str] = []
++    current: list[str] = []
++    quoted = False
++    for char in token:
++        if char == "«":
++            quoted = True
++            current.append(char)
++        elif char == "»":
++            quoted = False
++            current.append(char)
++        elif char == "." and not quoted:
++            if current:
++                result.append("".join(current))
++                current = []
++        else:
++            current.append(char)
++    if current:
++        result.append("".join(current))
++    return result
+@@ -213,12 +235,19 @@ def parse_declarations(
+-    namespace_re = re.compile(r"^\s*namespace\s+([^\s]+)\s*$")
+-    section_re = re.compile(r"^\s*(?:noncomputable\s+)?section(?:\s+([^\s]+))?\s*$")
++    namespace_re = re.compile(r"^\s*namespace\s+([^\s]+)\s*$")
++    section_re = re.compile(
++        r"^\s*(?:@\[[^\n]*?\]\s*)*"
++        r"(?:(?:public|private|noncomputable)\s+)*"
++        r"section(?:\s+([^\s]+))?\s*$"
++    )
++    mutual_re = re.compile(
++        r"^\s*(?:(?:public|private|noncomputable)\s+)*mutual\s*$"
++    )
+     end_re = re.compile(r"^\s*end(?:\s+([^\s]+))?\s*$")
+     declaration_re = re.compile(
+         r"^\s*(?:@\[[^\n]*?\]\s*)*"
+-        r"(?:(?:private|protected|noncomputable|unsafe)\s+)*"
++        r"(?P<modifiers>(?:(?:public|private|protected|local|scoped|"
++        r"noncomputable|unsafe|partial|nonrec)\s+)*)"
+         r"(theorem|lemma|def|abbrev|opaque|structure|class|inductive|axiom|instance)\s+"
+         r"([^\s:{(\[]+)"
+     )
+@@ -227,6 +256,8 @@ def parse_declarations(
+         current_namespace.clear()
+         for kind, _label, segments in frames:
+-            if kind == "namespace":
++            if kind == "root_namespace":
++                current_namespace.clear()
++            elif kind == "namespace":
+                 current_namespace.extend(segments)
+@@ -235,8 +266,12 @@ def parse_declarations(
+         if m:
+             token = m.group(1)
+-            segments = tuple(_identifier_segments(token))
+-            frames.append(("namespace", token, segments))
++            if token == "_root_":
++                frames.append(("root_namespace", token, ()))
++            else:
++                segments = tuple(_identifier_segments(token))
++                frames.append(("namespace", token, segments))
+             rebuild_namespace()
+             continue
+@@ -247,26 +282,20 @@ def parse_declarations(
+             frames.append(("section", m.group(1) or "", ()))
+             continue
++
++        if mutual_re.match(line):
++            frames.append(("mutual", "", ()))
++            continue
+ 
+         m = end_re.match(line)
+         if m:
+-            label = m.group(1)
+             if frames:
+-                if label:
+-                    match_index: int | None = None
+-                    for index in range(len(frames) - 1, -1, -1):
+-                        _kind, frame_label, segments = frames[index]
+-                        if frame_label == label or (segments and segments[-1] == label):
+-                            match_index = index
+-                            break
+-                    if match_index is None:
+-                        frames.pop()
+-                    else:
+-                        del frames[match_index:]
+-                else:
+-                    frames.pop()
++                # Lean's `end` closes one lexical block. The optional label is
++                # a check, not permission to search backward and delete scopes.
++                frames.pop()
+                 rebuild_namespace()
+             continue
+@@ -276,14 +305,22 @@ def parse_declarations(
+         m = declaration_re.match(line)
+         if not m:
+             continue
+-        kind, token = m.group(1), m.group(2)
++        modifiers = set(m.group("modifiers").split())
++        kind, token = m.group(2), m.group(3)
+         if kind not in DECL_KINDS or token.startswith(":"):
+             continue
+-        short = token.split(".")[-1]
++        token_segments = _identifier_segments(token)
++        if not token_segments:
++            continue
++        short = token_segments[-1]
+         if relevant_short_names is not None and short not in relevant_short_names:
+             continue
++
++        visibility = (
++            "private" if "private" in modifiers
++            else "local" if "local" in modifiers
++            else "public" if "public" in modifiers
++            else "regular"
++        )
+ 
+         if token.startswith("_root_."):
+-            full_segments = _identifier_segments(token)
++            full_segments = token_segments
+         else:
+-            full_segments = [*current_namespace, *_identifier_segments(token)]
++            full_segments = [*current_namespace, *token_segments]
+         full = ".".join(full_segments)
+-        declarations.append(Declaration(full, token, short, kind, module, path, line_number))
++        declarations.append(
++            Declaration(full, token, short, kind, module, path, line_number, visibility)
++        )
+@@ -340,6 +377,15 @@ def classify_target(
+     if len(exact_closure) == 1:
+         candidate = exact_closure[0]
++        if candidate.visibility in {"private", "local"}:
++            return TargetResolution(
++                config, target, expected_role, solution_module,
++                "INACCESSIBLE_EXACT_NAME_IN_CLOSURE", "critical", (candidate,),
++                f"Lexical name matches, but the declaration is {candidate.visibility} "
++                "and cannot establish the configured exported target.",
++            )
+         role_ok = (
+@@ -621,7 +667,7 @@ def main() -> int:
+-        "schema_version": "ComparatorClosureIntegrity/1",
++        "schema_version": "ComparatorClosureIntegrity/2",
+@@ -673,7 +719,7 @@ def main() -> int:
+-        "schema_version": "ComparatorClosureReceipt/1",
++        "schema_version": "ComparatorClosureReceipt/2",
+diff --git a/audit/tools/test_comparator_closure_scan.py b/audit/tools/test_comparator_closure_scan.py
+index ffb5415..0000000 100755
+--- a/audit/tools/test_comparator_closure_scan.py
++++ b/audit/tools/test_comparator_closure_scan.py
+@@ -64,6 +64,86 @@ class DeclarationTests(unittest.TestCase):
+         self.assertEqual(declarations[0].full_name, "B.t")
++
++    def test_public_theorem_is_detected(self) -> None:
++        source = "namespace OAI\npublic theorem target : True := by trivial\nend OAI\n"
++        declarations = SCAN.parse_declarations(
++            source, module="M", path="M.lean", relevant_short_names={"target"}
++        )
++        self.assertEqual(declarations[0].full_name, "OAI.target")
++        self.assertEqual(declarations[0].visibility, "public")
++
++    def test_private_theorem_remains_marked_inaccessible(self) -> None:
++        source = "namespace OAI\nprivate theorem target : True := by trivial\nend OAI\n"
++        declarations = SCAN.parse_declarations(
++            source, module="M", path="M.lean", relevant_short_names={"target"}
++        )
++        self.assertEqual(declarations[0].visibility, "private")
++
++    def test_mutual_end_does_not_close_namespace(self) -> None:
++        source = """namespace OAI
++mutual
++def helperA : Nat := 0
++def helperB : Nat := helperA
++end
++theorem target : True := by trivial
++end OAI
++"""
++        declarations = SCAN.parse_declarations(
++            source, module="M", path="M.lean", relevant_short_names={"target"}
++        )
++        self.assertEqual(declarations[0].full_name, "OAI.target")
++
++    def test_public_section_end_does_not_close_namespace(self) -> None:
++        source = """namespace OAI
++public section
++def helper : Nat := 0
++end
++theorem target : True := by trivial
++end OAI
++"""
++        declarations = SCAN.parse_declarations(
++            source, module="M", path="M.lean", relevant_short_names={"target"}
++        )
++        self.assertEqual(declarations[0].full_name, "OAI.target")
++
++    def test_root_namespace_resets_enclosing_namespace(self) -> None:
++        source = """namespace OAI
++namespace _root_
++theorem target : True := by trivial
++end _root_
++end OAI
++"""
++        declarations = SCAN.parse_declarations(
++            source, module="M", path="M.lean", relevant_short_names={"target"}
++        )
++        self.assertEqual(declarations[0].full_name, "target")
++
++    def test_guillemet_identifier_dot_is_not_a_namespace_separator(self) -> None:
++        source = "namespace OAI\ntheorem «target.with.dot» : True := by trivial\nend OAI\n"
++        declarations = SCAN.parse_declarations(
++            source,
++            module="M",
++            path="M.lean",
++            relevant_short_names={"«target.with.dot»"},
++        )
++        self.assertEqual(declarations[0].full_name, "OAI.«target.with.dot»")
+@@ -108,6 +188,24 @@ class ClosureAndResolutionTests(unittest.TestCase):
+         self.assertEqual(result.severity, "high")
++
++    def test_private_exact_name_cannot_pass_as_exported_target(self) -> None:
++        d = SCAN.Declaration(
++            "OAI.X.target", "target", "target", "theorem",
++            "OAI.X.Main", "OAI.X.Main.lean", 1, "private"
++        )
++        result = SCAN.classify_target(
++            config="X.json",
++            target="OAI.X.target",
++            expected_role="theorem",
++            solution_module="OAI.X.Main",
++            closure={"OAI.X.Main"},
++            full_index={d.full_name: [d]},
++            short_index={d.short_name: [d]},
++        )
++        self.assertEqual(result.status, "INACCESSIBLE_EXACT_NAME_IN_CLOSURE")
++        self.assertEqual(result.severity, "critical")

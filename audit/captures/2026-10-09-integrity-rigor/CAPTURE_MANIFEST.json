@@ -1,0 +1,156 @@
+{
+  "capture_date": "2026-10-09",
+  "capture_files": [
+    {
+      "bytes": 17856,
+      "path": "EVIDENCE.md",
+      "sha256": "871de52e63b5ec3c337916552f7c10dc97b4d1fc553d169093c37b303851c908"
+    },
+    {
+      "bytes": 2786,
+      "path": "LandauSiegelStatementBridge.lean",
+      "sha256": "dfbf1efd00a0f9c1421bc869acdb3022d017f5ea256b0602f92eb546212ade9a"
+    },
+    {
+      "bytes": 5140,
+      "path": "PATCH_VALIDATION.md",
+      "sha256": "34f804fc742e3fe9a30706582ee5ea93e8a890e185d56da65114864a6eeceb35"
+    },
+    {
+      "bytes": 1737,
+      "path": "README.md",
+      "sha256": "8756f9e9d6054b7d4e0fe287dfe4d0ff05b4b40ec6c11161f9acbc3efe8cbbb0"
+    },
+    {
+      "bytes": 1804,
+      "path": "capture_workflow_artifacts.py",
+      "sha256": "d7c5733a7817e455acf4352819acdfaf351471b88521f267ef0ae516b4197e65"
+    },
+    {
+      "bytes": 10224,
+      "path": "comparator-closure-v2.patch",
+      "sha256": "939471eb3f706e2feb7ac1c733704820edef54d350c1bd0a9f5d3110de1663df"
+    },
+    {
+      "bytes": 14007,
+      "path": "kernel-probe-v2.patch",
+      "sha256": "85d6d2c465faa4b6c985daacb2bc20c71692acebcef401d4d54732f8b0d6fd6a"
+    },
+    {
+      "bytes": 3726,
+      "path": "metaprogramming-classification-v2.patch",
+      "sha256": "f26b5d0187cb9f3635db668f843ee2d710db7cf5cec00cd5f153aca554fa6f8f"
+    },
+    {
+      "bytes": 3788,
+      "path": "preserve-integrity-rigor-audit.yml",
+      "sha256": "cf6726eb155ea59e1519fe3cf395de058e048fa4f4d2e192aadc5b618f526adc"
+    }
+  ],
+  "effect": "AUDIT_ONLY_DO_NOT_MERGE_TO_MIRROR_MAIN",
+  "frozen_upstream": {
+    "commit": "fd4aeeb2ee4fc729c18d98444fed42fd0529eeeb",
+    "repository": "openai/math",
+    "tree": "08e6aaa9e4788dd81984b67a9cd97d952093ecd4"
+  },
+  "generated_release_files": [
+    {
+      "path": "evidence.json",
+      "sha256": "a92af18d9c02b06ad6e00425391cb78c6016477e3844ba3900dfeb0171836e1f",
+      "source": "embedded gzip payload in capture_workflow_artifacts.py"
+    }
+  ],
+  "repository": "grwtsk/openai-math",
+  "schema_version": "IntegrityRigorCapture/1",
+  "source_packages": [
+    {
+      "bytes": 10694,
+      "name": "landau-siegel-audit-wave.zip",
+      "sha256": "de55975f127f8a0c9c8c3c852e17ef91db756f30a296bb197c967c5a9963eda9"
+    },
+    {
+      "bytes": 5609,
+      "name": "landau-siegel-external-overlap.zip",
+      "sha256": "327925516429a9ed99fc806b71e049142bf1c0c03f8e9599c3bc5fc12c3171e0"
+    },
+    {
+      "bytes": 3250,
+      "name": "landau-siegel-statement-bridge.zip",
+      "sha256": "c9a69c0f80611309a92fb22c51bc06e838019613b5ce357cd58b774930e91ec6"
+    },
+    {
+      "bytes": 3276,
+      "name": "analytic-landau-contradiction-review.zip",
+      "sha256": "129d594738af758663c45d92d7d4b473da6afd7cca71476f1bd61a1539143c8a"
+    },
+    {
+      "bytes": 4184,
+      "name": "quasi-riemann-patched-dependency-audit.zip",
+      "sha256": "26f6a3c6c20f0187ea0c366131f6f2195033bd8e16bc8d809f92b754094af5ba"
+    },
+    {
+      "bytes": 2899,
+      "name": "quasi-riemann-import-minimization-addendum.zip",
+      "sha256": "72b127dd5c5eb36f8e5d9018479848a4b19fd63c01a93e619d206ee5e2191918"
+    },
+    {
+      "bytes": 7570,
+      "name": "theorem-dependency-projection.zip",
+      "sha256": "305c1dfb8b0f3e3662e27c38df2737af13ce8614656fcd87c21b373b3d6fc1c0"
+    },
+    {
+      "bytes": 7291,
+      "name": "selected-theorem-kernel-probe-correction.zip",
+      "sha256": "273a66367154671a18a68e1b542b95d5756574d0266a1d4e9c9b5f2986cb81fc"
+    },
+    {
+      "bytes": 7325,
+      "name": "comparator-closure-parser-hardening.zip",
+      "sha256": "b2a2d1e4e8f5fc49f9c5bea31f8d4da786ffef27f6009afd820bd6963ed8c8b3"
+    },
+    {
+      "bytes": 4429,
+      "name": "metaprogramming-surface-calibration.zip",
+      "sha256": "d019d4870cb222d2554f5feb351dcb526af5fb94be31fc03f9c39a591a8d9555"
+    },
+    {
+      "bytes": 598820,
+      "name": "theorem-closure-receipts.zip",
+      "sha256": "2beb37eaafacbdecdfa157cc1a240d1eb0f80ce6e9a0ef56aa91f1c6a4fb9dfd"
+    }
+  ],
+  "status_boundaries": [
+    "Durable custody is not acceptance.",
+    "Raw failed receipts remain historical and require explicit supersession after corrected rerun.",
+    "Lean source candidates are not proof evidence until replayed.",
+    "Static closure separation is not mathematical or causal independence.",
+    "Audit-tool corrections make pre-correction outputs provisional."
+  ],
+  "workflow_artifacts": [
+    {
+      "artifact_id": 11610847746,
+      "name": "theorem-closure-receipts.zip",
+      "sha256": "2beb37eaafacbdecdfa157cc1a240d1eb0f80ce6e9a0ef56aa91f1c6a4fb9dfd"
+    },
+    {
+      "artifact_id": 11610594316,
+      "name": "landau-siegel-geometric-kernel-probe.zip",
+      "sha256": "e35075f41fa1b2ec69ae5c0fcca13f4838dc7764f4e2c843325a20a2069c7b19"
+    },
+    {
+      "artifact_id": 11611870569,
+      "name": "landau-siegel-analytic-kernel-probe.zip",
+      "sha256": "93ba2588dcc0b1957204967794266850a606301d10d54838089c5a8a1095628d"
+    },
+    {
+      "artifact_id": 11607286790,
+      "name": "path-encoding-integrity.zip",
+      "sha256": "1aad39d47fe308570f4a5180ccee269257626d764b1be2a2427535a023401b18"
+    },
+    {
+      "artifact_id": 11606943374,
+      "name": "genesis-rigor-scan-v2.zip",
+      "sha256": "3a605158f4237f7adc35886286dd5454b341a5e67f836ea24d3afcea870586a6"
+    }
+  ]
+}

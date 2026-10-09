@@ -1,0 +1,348 @@
+diff --git a/audit/tools/run_theorem_kernel_probe.py b/audit/tools/run_theorem_kernel_probe.py
+index 68b29fd..0000000 100755
+--- a/audit/tools/run_theorem_kernel_probe.py
++++ b/audit/tools/run_theorem_kernel_probe.py
+@@ -12,11 +12,13 @@ import subprocess
+ import sys
+ import time
+ from pathlib import Path
+-from typing import Any
++from typing import Any, Iterable
+
+ ROOT = Path(__file__).resolve().parents[2]
+ LEAN_ROOT = ROOT / "lean"
+ ALLOWED_AXIOMS = {"propext", "Classical.choice", "Quot.sound"}
++LEAN_UNIVERSE_INSTANTIATION_RE = re.compile(r"\.\{[^{}\r\n]+\}$")
+
+
+ def sha256_bytes(data: bytes) -> str:
+@@ -81,15 +83,79 @@ def stream_command(
+     }
+
+
+-def parse_axioms(output: str) -> tuple[list[str] | None, str | None]:
++def canonical_axiom_name(name: str) -> str:
++    """Remove only a terminal Lean universe instantiation from an axiom name."""
++    return LEAN_UNIVERSE_INSTANTIATION_RE.sub("", name.strip())
++
++
++def split_axiom_payload(payload: str) -> tuple[list[str] | None, str | None]:
++    """Split Lean's axiom list on commas outside `.{...}` universe syntax."""
++    tokens: list[str] = []
++    current: list[str] = []
++    brace_depth = 0
++
++    for char in payload:
++        if char == "{":
++            brace_depth += 1
++            current.append(char)
++            continue
++        if char == "}":
++            if brace_depth == 0:
++                return None, "unbalanced closing brace in '#print axioms' result"
++            brace_depth -= 1
++            current.append(char)
++            continue
++        if char == "," and brace_depth == 0:
++            token = "".join(current).strip()
++            if not token:
++                return None, "empty axiom token in '#print axioms' result"
++            tokens.append(token)
++            current = []
++            continue
++        current.append(char)
++
++    if brace_depth != 0:
++        return None, "unbalanced opening brace in '#print axioms' result"
++
++    token = "".join(current).strip()
++    if token:
++        tokens.append(token)
++    elif tokens:
++        return None, "empty axiom token in '#print axioms' result"
++    return sorted(set(tokens)), None
++
++
++def parse_axioms_raw(output: str) -> tuple[list[str] | None, str | None]:
+     matches = re.findall(r"depends on axioms:\s*\[([^\]]*)\]", output)
+     if len(matches) != 1:
+         return None, f"expected one '#print axioms' result, found {len(matches)}"
+     payload = matches[0].strip()
+     if not payload:
+         return [], None
+-    axioms = sorted({item.strip() for item in payload.split(",") if item.strip()})
+-    return axioms, None
++    return split_axiom_payload(payload)
++
++
++def canonicalize_axioms(axioms: Iterable[str]) -> list[str]:
++    return sorted({canonical_axiom_name(item) for item in axioms})
++
++
++def parse_axioms(output: str) -> tuple[list[str] | None, str | None]:
++    raw_axioms, error = parse_axioms_raw(output)
++    if raw_axioms is None:
++        return None, error
++    return canonicalize_axioms(raw_axioms), None
++
++
++def partition_repository_status(
++    entries: list[str], output_dir_relative: str
++) -> tuple[list[str], list[str]]:
++    """Separate expected receipt output from unexpected source-tree mutation."""
++    prefix = f"?? {output_dir_relative.rstrip('/')}/"
++    expected: list[str] = []
++    unexpected: list[str] = []
++    for entry in entries:
++        if entry.startswith(prefix):
++            expected.append(entry)
++        else:
++            unexpected.append(entry)
++    return expected, unexpected
+
+
+ def skipped(name: str, reason: str) -> dict[str, Any]:
+@@ -202,7 +268,12 @@ def main() -> int:
+     probe_log = output_dir / "lean-probe.log"
+     if probe_log.exists():
+         probe_output = probe_log.read_text(encoding="utf-8", errors="replace")
+-    observed_axioms, axiom_parse_error = parse_axioms(probe_output)
++    observed_axioms_raw, axiom_parse_error = parse_axioms_raw(probe_output)
++    observed_axioms = (
++        canonicalize_axioms(observed_axioms_raw)
++        if observed_axioms_raw is not None
++        else None
++    )
+     unexpected_axioms = (
+         sorted(set(observed_axioms) - ALLOWED_AXIOMS)
+         if observed_axioms is not None
+@@ -227,17 +298,30 @@ def main() -> int:
+         stderr=subprocess.PIPE,
+         check=False,
+     ).stdout
++    repository_status_entries = repository_status.decode(
++        "utf-8", "surrogateescape"
++    ).splitlines()
++    output_dir_relative = str(output_dir.relative_to(ROOT))
++    expected_generated_status, unexpected_repository_status = (
++        partition_repository_status(repository_status_entries, output_dir_relative)
++    )
++    if unexpected_repository_status:
++        blocking_failures.append(
++            "unexpected repository changes after probe: "
++            f"{unexpected_repository_status}"
++        )
+
+     receipt = {
+-        "schema_version": "SelectedTheoremKernelProbe/1",
++        "schema_version": "SelectedTheoremKernelProbe/2",
+         "key": args.key,
+         "module": args.module,
+         "theorem": args.theorem,
+         "identity": identity,
+         "commands": commands,
+         "cache_status_is_evidence_only": True,
++        "axiom_comparison_uses_canonical_names": True,
+         "mathlib_cache_exit_code": commands["mathlib_cache"].get("exit_code"),
+         "effective_dependency_manifest": (
+             {
+@@ -249,6 +333,14 @@ def main() -> int:
+             else None
+         ),
++        "observed_axioms_raw": observed_axioms_raw,
+         "observed_axioms": observed_axioms,
++        "axiom_name_canonicalization": (
++            [
++                {"raw": item, "canonical": canonical_axiom_name(item)}
++                for item in observed_axioms_raw
++            ]
++            if observed_axioms_raw is not None
++            else None
++        ),
+         "allowed_axioms": sorted(ALLOWED_AXIOMS),
+         "unexpected_axioms": unexpected_axioms,
+         "allowed_axioms_not_observed": missing_expected_axioms,
+@@ -256,9 +348,9 @@ def main() -> int:
+         "probe_output_sha256": (
+             sha256_file(probe_log) if probe_log.exists() else None
+         ),
+-        "repository_status_after_probe": repository_status.decode(
+-            "utf-8", "surrogateescape"
+-        ).splitlines(),
++        "repository_status_after_probe": repository_status_entries,
++        "expected_generated_status_entries": expected_generated_status,
++        "unexpected_repository_status_entries": unexpected_repository_status,
+         "blocking_failures": blocking_failures,
+         "classification": (
+             "PRIMARY_KERNEL_PROBE_PASSED"
+@@ -272,6 +364,8 @@ def main() -> int:
+             "Dependency cache use is recorded and does not imply a fresh dependency build.",
+             "No independent kernel is invoked by this receipt.",
+             "Axiom output is parsed from Lean's '#print axioms' command.",
++            "Raw axiom names are preserved in the receipt.",
++            "Only a terminal Lean universe instantiation `.{...}` is removed for allowlist comparison.",
+         ],
+     }
+@@ -287,6 +381,7 @@ def main() -> int:
+         "key": args.key,
+         "classification": receipt["classification"],
++        "observed_axioms_raw": observed_axioms_raw,
+         "observed_axioms": observed_axioms,
+         "unexpected_axioms": unexpected_axioms,
+         "blocking_failures": blocking_failures,
+diff --git a/audit/tools/test_run_theorem_kernel_probe.py b/audit/tools/test_run_theorem_kernel_probe.py
+index 38c7e97..0000000 100755
+--- a/audit/tools/test_run_theorem_kernel_probe.py
++++ b/audit/tools/test_run_theorem_kernel_probe.py
+@@ -28,6 +28,72 @@ class AxiomParserTests(unittest.TestCase):
+             axioms, ["Classical.choice", "Quot.sound", "propext"]
+         )
+
++    def test_universe_parameters_are_canonicalized(self) -> None:
++        output = (
++            "'OAI.theorem' depends on axioms: "
++            "[propext, Classical.choice.{u}, Quot.sound.{u}]\n"
++        )
++        axioms, error = PROBE.parse_axioms(output)
++        self.assertIsNone(error)
++        self.assertEqual(
++            axioms, ["Classical.choice", "Quot.sound", "propext"]
++        )
++
++    def test_raw_universe_parameters_are_preserved(self) -> None:
++        output = (
++            "'OAI.theorem' depends on axioms: "
++            "[propext, Classical.choice.{u}, Quot.sound.{u}]\n"
++        )
++        raw, error = PROBE.parse_axioms_raw(output)
++        self.assertIsNone(error)
++        self.assertEqual(
++            raw, ["Classical.choice.{u}", "Quot.sound.{u}", "propext"]
++        )
++
++    def test_multi_universe_instantiation_is_one_token(self) -> None:
++        output = "'A' depends on axioms: [Example.ax.{u, v}, Other.ax.{0}]\n"
++        raw, error = PROBE.parse_axioms_raw(output)
++        self.assertIsNone(error)
++        self.assertEqual(raw, ["Example.ax.{u, v}", "Other.ax.{0}"])
++        axioms, error = PROBE.parse_axioms(output)
++        self.assertIsNone(error)
++        self.assertEqual(axioms, ["Example.ax", "Other.ax"])
++
++    def test_unknown_axiom_remains_unknown_after_canonicalization(self) -> None:
++        output = (
++            "'A' depends on axioms: "
++            "[propext, Classical.choice.{u}, Unsafe.escape.{u}]\n"
++        )
++        axioms, error = PROBE.parse_axioms(output)
++        self.assertIsNone(error)
++        self.assertEqual(
++            sorted(set(axioms or []) - PROBE.ALLOWED_AXIOMS),
++            ["Unsafe.escape"],
++        )
++
++    def test_nonterminal_braced_text_is_not_removed(self) -> None:
++        self.assertEqual(
++            PROBE.canonical_axiom_name("Unsafe.{u}.escape"),
++            "Unsafe.{u}.escape",
++        )
++
++    def test_malformed_universe_braces_are_rejected(self) -> None:
++        raw, error = PROBE.parse_axioms_raw(
++            "'A' depends on axioms: [Classical.choice.{u, Quot.sound]\n"
++        )
++        self.assertIsNone(raw)
++        self.assertIn("unbalanced opening brace", error or "")
++
++    def test_empty_axiom_token_is_rejected(self) -> None:
++        raw, error = PROBE.parse_axioms_raw(
++            "'A' depends on axioms: [propext,, Quot.sound]\n"
++        )
++        self.assertIsNone(raw)
++        self.assertIn("empty axiom token", error or "")
++
+     def test_no_axioms_is_accepted_as_empty_list(self) -> None:
+         axioms, error = PROBE.parse_axioms(
+             "'OAI.constructive' depends on axioms: []\n"
+@@ -51,6 +117,27 @@ class AxiomParserTests(unittest.TestCase):
+         self.assertIn("found 2", error or "")
+
+
++class RepositoryStatusPolicyTests(unittest.TestCase):
++    def test_receipt_output_is_expected(self) -> None:
++        expected, unexpected = PROBE.partition_repository_status(
++            [
++                "?? audit/results/kernel-probes/example/module-build.log",
++                "?? audit/results/kernel-probes/example/lean-probe.log",
++            ],
++            "audit/results/kernel-probes/example",
++        )
++        self.assertEqual(len(expected), 2)
++        self.assertEqual(unexpected, [])
++
++    def test_source_mutation_is_blocking(self) -> None:
++        expected, unexpected = PROBE.partition_repository_status(
++            [
++                "?? audit/results/kernel-probes/example/module-build.log",
++                " M lean/lake-manifest.json",
++            ],
++            "audit/results/kernel-probes/example",
++        )
++        self.assertEqual(len(expected), 1)
++        self.assertEqual(unexpected, [" M lean/lake-manifest.json"])
++
++
+ class StablePolicyTests(unittest.TestCase):
+     def test_axiom_allowlist_is_narrow(self) -> None:
+         self.assertEqual(
+diff --git a/.github/workflows/selected-theorem-kernel-probes.yml b/.github/workflows/selected-theorem-kernel-probes.yml
+index 1c76385..0000000 100644
+--- a/.github/workflows/selected-theorem-kernel-probes.yml
++++ b/.github/workflows/selected-theorem-kernel-probes.yml
+@@ -43,6 +43,7 @@ jobs:
+       LEAN_ABORT_ON_PANIC: "1"
+       LEAN_NUM_THREADS: "1"
+       GLIBC_TUNABLES: glibc.malloc.mmap_max=0:glibc.malloc.arena_max=1
++      PYTHONDONTWRITEBYTECODE: "1"
+
+     steps:
+       - name: Check out exact candidate
+@@ -57,7 +58,7 @@ jobs:
+       - name: Run hostile receipt tests
+         run: |
+           set -euo pipefail
+-          python3 -m unittest -v \
++          python3 -B -m unittest -v \
+             audit/tools/test_effective_dependency_manifest.py \
+             audit/tools/test_run_theorem_kernel_probe.py
+
+@@ -91,6 +92,8 @@ jobs:
+           sha256sum "${{ matrix.probe }}"
+           sha256sum audit/tools/effective_dependency_manifest.py
++          sha256sum audit/tools/test_effective_dependency_manifest.py
+           sha256sum audit/tools/run_theorem_kernel_probe.py
++          sha256sum audit/tools/test_run_theorem_kernel_probe.py
+           sha256sum .github/workflows/selected-theorem-kernel-probes.yml
+           cat /etc/os-release
+           uname -a
+@@ -100,7 +103,7 @@ jobs:
+         continue-on-error: true
+         run: |
+           set -uo pipefail
+-          python3 audit/tools/run_theorem_kernel_probe.py \
++          python3 -B audit/tools/run_theorem_kernel_probe.py \
+             --key "${{ matrix.key }}" \
+             --module "${{ matrix.module }}" \
+             --theorem "${{ matrix.theorem }}" \
+@@ -121,7 +124,8 @@ jobs:
+           print(f"- Classification: `{data['classification']}`")
+           print(f"- Module: `{data['module']}`")
+           print(f"- Theorem: `{data['theorem']}`")
+-          print(f"- Observed axioms: `{data['observed_axioms']}`")
++          print(f"- Observed axioms (raw): `{data['observed_axioms_raw']}`")
++          print(f"- Observed axioms (canonical): `{data['observed_axioms']}`")
+           print(f"- Unexpected axioms: `{data['unexpected_axioms']}`")
+           print(f"- Cache command exit: `{data['mathlib_cache_exit_code']}`")
++          print(f"- Unexpected repository changes: `{data['unexpected_repository_status_entries']}`")
+           if data['blocking_failures']:
+               print("- Blocking failures:")
