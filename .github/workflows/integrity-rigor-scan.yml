@@ -8,6 +8,12 @@ on:
     paths:
       - audit/tools/integrity_rigor_scan.py
       - .github/workflows/integrity-rigor-scan.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - audit/tools/integrity_rigor_scan.py
+      - .github/workflows/integrity-rigor-scan.yml
 
 permissions:
   contents: write
@@ -48,6 +54,7 @@ jobs:
           retention-days: 90
 
       - name: Commit generated receipts to the audit branch
+        if: github.event_name != 'pull_request'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
