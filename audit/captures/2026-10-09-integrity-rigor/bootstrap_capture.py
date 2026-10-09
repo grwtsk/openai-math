@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Materialize the 2026-10-09 integrity-rigor capture and preserve raw artifacts."""
 from __future__ import annotations
-import base64, gzip, hashlib, io, json, os, tarfile, urllib.request, zipfile
+import base64, gzip, hashlib, io, json, os, tarfile, urllib.error, urllib.request, zipfile
 from pathlib import Path
 
 CAPTURE_ROOT=Path("audit/captures/2026-10-09-integrity-rigor")
@@ -58,7 +58,19 @@ def download_artifacts()->list[dict[str,object]]:
     for aid,name,expected in ARTIFACTS:
         url=f"https://api.github.com/repos/{repo}/actions/artifacts/{aid}/zip"
         req=urllib.request.Request(url,headers={"Authorization":f"Bearer {token}","Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28","User-Agent":"grwtsk-audit-capture"})
-        with urllib.request.urlopen(req,timeout=240) as response: data=response.read()
+        class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):
+                return None
+        opener=urllib.request.build_opener(NoRedirect)
+        try:
+            with opener.open(req,timeout=240) as response:
+                data=response.read()
+        except urllib.error.HTTPError as exc:
+            if exc.code not in {301,302,303,307,308} or not exc.headers.get("Location"):
+                raise
+            location=exc.headers["Location"]
+            with urllib.request.urlopen(location,timeout=240) as response:
+                data=response.read()
         actual=sha(data)
         if actual!=expected: raise SystemExit(f"{name} digest mismatch: {actual} != {expected}")
         (out/name).write_bytes(data)
