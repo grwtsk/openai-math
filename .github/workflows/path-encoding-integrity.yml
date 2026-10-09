@@ -1,0 +1,75 @@
+name: Path and encoding integrity
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - audit/path-encoding-integrity-20261009
+    paths:
+      - audit/tools/path_encoding_integrity.py
+      - audit/tools/test_path_encoding_integrity.py
+      - .github/workflows/path-encoding-integrity.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: path-encoding-integrity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository-identity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Record source and runtime identities
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          git rev-parse HEAD^{tree}
+          git rev-parse fd4aeeb2ee4fc729c18d98444fed42fd0529eeeb^{tree}
+          python3 --version
+          git --version
+          sha256sum audit/tools/path_encoding_integrity.py
+          sha256sum audit/tools/test_path_encoding_integrity.py
+          sha256sum .github/workflows/path-encoding-integrity.yml
+
+      - name: Run hostile scanner tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v audit/tools/test_path_encoding_integrity.py
+
+      - name: Run deterministic path and encoding scan
+        id: scan
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 audit/tools/path_encoding_integrity.py | tee /tmp/path-encoding-summary.json
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Publish accessible report
+        if: always()
+        run: cat audit/reports/openai-math-fd4aeeb2ee4f/path-encoding-integrity.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload immutable reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: path-encoding-integrity-${{ github.sha }}
+          path: audit/reports/openai-math-fd4aeeb2ee4f/
+          if-no-files-found: error
+          retention-days: 90
+          include-hidden-files: false
+
+      - name: Enforce critical integrity boundary
+        if: always()
+        run: test "${{ steps.scan.outputs.exit_code }}" = "0"
