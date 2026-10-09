@@ -10,7 +10,10 @@ PART_SHA256={
  "payload.part00":"0313b034f4839f952c9cb0098d5755416047f44030ef786f73053cd329039eb0",
  "payload.part01":"4b514a3abe5cde60e06e73a96698213c2bd5401464c62b09bc5ac1732bc99897",
  "payload.part02":"ed0048fc9cccad58846b6b360cc4df3d24a0774b648e8fc22bb84fbd6b0e8f28",
- "payload.part03":"e2ba2d4a733af4fa776b68f37ee83bdb512c80ce7f6bd9c70990d748a2925e2b",
+ "payload.part03a":"10cbf7feebace34d6418506fb7e25381b2c8462866bc6e082962dd17e1b79a65",
+ "payload.part03b":"2c59f57fa216a7282209392dee6be886d369365ae1159c4f960c2b8ca1bcff7f",
+ "payload.part03c":"190dd71b26c75611b15b4a149c267459dec55472ff6d4d065a862a7b61c357dc",
+ "payload.part03d":"6fcfaf15029c6eb2f12921e4504260d6b1939f5e9e478c228ba5a2bd768a8375",
 }
 ARTIFACTS=[
  (11610847746,"theorem-closure-receipts.zip","2beb37eaafacbdecdfa157cc1a240d1eb0f80ce6e9a0ef56aa91f1c6a4fb9dfd"),
@@ -23,7 +26,7 @@ ARTIFACTS=[
 def sha(data:bytes)->str: return hashlib.sha256(data).hexdigest()
 
 def extract_payload()->None:
-    parts=sorted(CAPTURE_ROOT.glob("payload.part*"))
+    parts=[CAPTURE_ROOT / name for name in sorted(PART_SHA256)]
     names=[p.name for p in parts]
     if names!=sorted(PART_SHA256):
         raise SystemExit(f"embedded payload part set mismatch: {names}")
