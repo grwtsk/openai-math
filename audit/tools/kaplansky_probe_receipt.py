@@ -12,7 +12,11 @@ from typing import Any
 
 TARGETS = (
     "OAI.KaplanskyCounterexample.main_theorem",
+    "OAI.KaplanskyCounterexample.finitelyPresented_counterexample",
+    "OAI.KaplanskyCounterexample.thm_main",
     "OAI.KaplanskyCounterexample.Prescription.Output.prescribed_main",
+    "OAI.KaplanskyCounterexample.Prescription.Output.prescribed_finitelyPresented",
+    "OAI.KaplanskyCounterexample.Prescription.Output.prescribed_odd_prime_order",
     "OAI.KaplanskyCounterexample.Prescription.Output.prescribed_products",
     "OAI.KaplanskyCounterexample.Prescription.finite_search_terminates",
     "OAI.mersenne_21701_prime",
