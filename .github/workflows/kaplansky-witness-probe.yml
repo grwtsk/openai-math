@@ -54,7 +54,10 @@ jobs:
           git rev-parse "$BASE_REVISION":lean | tee "$REPORT_DIR/frozen-lean-tree.txt"
           sha256sum \
             lean/OAI/RingTheory/DirectFiniteness/Main.lean \
+            lean/OAI/RingTheory/DirectFiniteness/FinitelyPresented.lean \
             lean/OAI/RingTheory/DirectFiniteness/PrescribedOutputs.lean \
+            lean/OAI/RingTheory/DirectFiniteness/PrescribedPresentation.lean \
+            lean/OAI/RingTheory/DirectFiniteness/OddTorsion.lean \
             lean/OAI/RingTheory/DirectFiniteness/PrescribedData.lean \
             lean/OAI/RingTheory/DirectFiniteness/PrescribedSearch.lean \
             lean/OAI/RingTheory/DirectFiniteness/PrescribedIncidence.lean \
@@ -62,6 +65,8 @@ jobs:
             lean/OAI/RingTheory/DirectFiniteness/FiniteParameters.lean \
             lean/OAI/RingTheory/DirectFiniteness/PrimeCertificate.lean \
             lean/OAI/RingTheory/DirectFiniteness/ChosenCriterion.lean \
+            lean/ComparatorChallenges/KaplanskyDirectFiniteness.json \
+            lean/ComparatorChallenges/KaplanskyFinitelyPresented.json \
             audit/lean/KaplanskyWitnessProbe.lean \
             audit/tools/kaplansky_probe_receipt.py \
             .github/workflows/kaplansky-witness-probe.yml \
@@ -121,14 +126,14 @@ jobs:
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Build exact direct-finiteness solution module
+      - name: Build exact finite-presentation solution module
         id: build
         if: always()
         run: |
           set +e
           set -o pipefail
-          (cd lean && lake build OAI.RingTheory.DirectFiniteness.Main) \
-            2>&1 | tee "$REPORT_DIR/kaplansky-main-build.log"
+          (cd lean && lake build OAI.RingTheory.DirectFiniteness.FinitelyPresented) \
+            2>&1 | tee "$REPORT_DIR/kaplansky-finitely-presented-build.log"
           status=${PIPESTATUS[0]}
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
