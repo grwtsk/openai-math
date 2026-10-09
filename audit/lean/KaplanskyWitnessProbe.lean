@@ -1,4 +1,4 @@
-import OAI.RingTheory.DirectFiniteness.Main
+import OAI.RingTheory.DirectFiniteness.FinitelyPresented
 
 #eval IO.println "AUDIT_TARGET_BEGIN|OAI.KaplanskyCounterexample.main_theorem"
 set_option pp.all true in
@@ -6,11 +6,35 @@ set_option pp.all true in
 #print axioms OAI.KaplanskyCounterexample.main_theorem
 #eval IO.println "AUDIT_TARGET_END|OAI.KaplanskyCounterexample.main_theorem"
 
+#eval IO.println "AUDIT_TARGET_BEGIN|OAI.KaplanskyCounterexample.finitelyPresented_counterexample"
+set_option pp.all true in
+#check OAI.KaplanskyCounterexample.finitelyPresented_counterexample
+#print axioms OAI.KaplanskyCounterexample.finitelyPresented_counterexample
+#eval IO.println "AUDIT_TARGET_END|OAI.KaplanskyCounterexample.finitelyPresented_counterexample"
+
+#eval IO.println "AUDIT_TARGET_BEGIN|OAI.KaplanskyCounterexample.thm_main"
+set_option pp.all true in
+#check OAI.KaplanskyCounterexample.thm_main
+#print axioms OAI.KaplanskyCounterexample.thm_main
+#eval IO.println "AUDIT_TARGET_END|OAI.KaplanskyCounterexample.thm_main"
+
 #eval IO.println "AUDIT_TARGET_BEGIN|OAI.KaplanskyCounterexample.Prescription.Output.prescribed_main"
 set_option pp.all true in
 #check OAI.KaplanskyCounterexample.Prescription.Output.prescribed_main
 #print axioms OAI.KaplanskyCounterexample.Prescription.Output.prescribed_main
 #eval IO.println "AUDIT_TARGET_END|OAI.KaplanskyCounterexample.Prescription.Output.prescribed_main"
+
+#eval IO.println "AUDIT_TARGET_BEGIN|OAI.KaplanskyCounterexample.Prescription.Output.prescribed_finitelyPresented"
+set_option pp.all true in
+#check OAI.KaplanskyCounterexample.Prescription.Output.prescribed_finitelyPresented
+#print axioms OAI.KaplanskyCounterexample.Prescription.Output.prescribed_finitelyPresented
+#eval IO.println "AUDIT_TARGET_END|OAI.KaplanskyCounterexample.Prescription.Output.prescribed_finitelyPresented"
+
+#eval IO.println "AUDIT_TARGET_BEGIN|OAI.KaplanskyCounterexample.Prescription.Output.prescribed_odd_prime_order"
+set_option pp.all true in
+#check OAI.KaplanskyCounterexample.Prescription.Output.prescribed_odd_prime_order
+#print axioms OAI.KaplanskyCounterexample.Prescription.Output.prescribed_odd_prime_order
+#eval IO.println "AUDIT_TARGET_END|OAI.KaplanskyCounterexample.Prescription.Output.prescribed_odd_prime_order"
 
 #eval IO.println "AUDIT_TARGET_BEGIN|OAI.KaplanskyCounterexample.Prescription.Output.prescribed_products"
 set_option pp.all true in
