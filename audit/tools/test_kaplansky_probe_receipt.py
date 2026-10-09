@@ -27,8 +27,8 @@ class KaplanskyReceiptTests(unittest.TestCase):
         targets = "".join(self.block(target, axioms) for target in PROBE.TARGETS)
         witness = (
             "AUDIT_WITNESS_BEGIN|source-parameters\n"
-            "sourceQ sourcePrime selectedH selectedPair Coeff G a b\n"
-            "AUDIT_WITNESS_END|source-parameters\n"
+            + "\n".join(f"{token} : MockType" for token in PROBE.REQUIRED_WITNESS_TOKENS)
+            + "\nAUDIT_WITNESS_END|source-parameters\n"
         )
         return targets + witness
 
@@ -57,8 +57,8 @@ class KaplanskyReceiptTests(unittest.TestCase):
         text = "".join(self.block(target) for target in PROBE.TARGETS)
         text += (
             "AUDIT_WITNESS_BEGIN|source-parameters\n"
-            "sourceQ selectedH Coeff G a b\n"
-            "AUDIT_WITNESS_END|source-parameters\n"
+            + "\n".join(f"{token} : MockType" for token in PROBE.REQUIRED_WITNESS_TOKENS[:-2])
+            + "\nAUDIT_WITNESS_END|source-parameters\n"
         )
         _report, violations = PROBE.make_report(text, {})
         self.assertTrue(any(v["code"] == "WITNESS_PROJECTION_INCOMPLETE" for v in violations))
@@ -79,6 +79,16 @@ class KaplanskyReceiptTests(unittest.TestCase):
             PROBE.parse_axioms("'x' depends on axioms: [propext,\n Quot.sound, Classical.choice]"),
             ["Classical.choice", "Quot.sound", "propext"],
         )
+
+    def test_qualified_witness_names_are_required(self) -> None:
+        text = "".join(self.block(target) for target in PROBE.TARGETS)
+        text += (
+            "AUDIT_WITNESS_BEGIN|source-parameters\n"
+            "sourceQ sourcePrime selectedH selectedPair Coeff G a b\n"
+            "AUDIT_WITNESS_END|source-parameters\n"
+        )
+        _report, violations = PROBE.make_report(text, {})
+        self.assertTrue(any(v["code"] == "WITNESS_PROJECTION_INCOMPLETE" for v in violations))
 
 
 if __name__ == "__main__":
