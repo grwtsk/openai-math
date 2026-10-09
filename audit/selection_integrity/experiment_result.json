@@ -1,0 +1,133 @@
+{
+  "explicit_limit": "No original internal OpenAI attempts, checkpoint labels, variants, reward scores, or filter decisions are published here.",
+  "public_catalogue": {
+    "catalogue_order_cusum": {
+      "direction_at_peak": 34.876344086021405,
+      "interpretation": "CATALOGUE_ORDER_ONLY: not chronological and grouped by discipline; exchangeability is doubtful",
+      "max_abs_centered_partial_sum": 34.876344086021405,
+      "peak_index_in_catalogue": 266,
+      "permutation_p_under_exchangeable_order": 0.1921615676864627,
+      "permutations": 5000
+    },
+    "digit_search": {
+      "digit7_exact_overlap": 6,
+      "digit7_nominal_one_sided_hypergeom_p": 0.00440280258483024,
+      "digit7_population_count": 71,
+      "interpretation": "EXPLORATORY_ONLY: digit/sequence chosen after viewing data; catalogue indices not trial order",
+      "minimum_nominal_digit_p": 0.00440280258483024,
+      "permutations": 5000,
+      "selected_digit": 7,
+      "ten_digit_search_familywise_permutation_p": 0.01759648070385923
+    },
+    "evidence_grade": "PUBLIC_CATALOGUE_ONLY_NOT_INTERNAL_SELECTION",
+    "families": 372,
+    "internal_selection_process_identifiable": false,
+    "manuscript_count_distribution": {
+      "1": 205,
+      "2": 96,
+      "3": 36,
+      "4": 13,
+      "5": 8,
+      "6": 4,
+      "7": 3,
+      "8": 2,
+      "9": 1,
+      "12": 1,
+      "13": 2,
+      "14": 1
+    },
+    "manuscripts": 719,
+    "manuscripts_per_family": {
+      "all_families_mean": 1.9327956989247312,
+      "difference": 0.26720430107526894,
+      "reasoning_selected_mean": 2.2,
+      "two_sided_uniform_subset_permutation_p": 0.6262747450509898
+    },
+    "missing_family_identifiers": [
+      45,
+      61,
+      70,
+      123,
+      163
+    ],
+    "reasoning_family_identifiers": [
+      7,
+      17,
+      87,
+      102,
+      159,
+      197,
+      221,
+      271,
+      287,
+      362
+    ],
+    "reasoning_sample_n": 10,
+    "source_blob_shas": {
+      "CONTENTS.md": "2c68c086fff36a5806c936ad1659cf1a8d0b6dd9",
+      "README.md": "50feb63d396138f30dc1ff1e0af121d0263bf5a3"
+    },
+    "source_revision": "openai/math@fd4aeeb2ee4fc729c18d98444fed42fd0529eeeb",
+    "transient_fixture_source": "GitHub connector extraction from exact source blobs; run --mode all on fork checkout to verify source bytes directly"
+  },
+  "research_question": "Can candidate/filter sensitivity be measured and separated from publication-only structure?",
+  "schema": "SelectionIntegrityExperiment/1",
+  "seed": 20261009,
+  "synthetic_calibration": {
+    "decision_alpha": 0.01,
+    "injected_filter_detections": 36,
+    "limitations": "Simulated calibration only, no real false-positive guarantee under model drift",
+    "null_false_alerts": 1,
+    "seed_replicates": 36,
+    "tasks_per_seed": 600
+  },
+  "synthetic_factorial": {
+    "both_G1_F1": {
+      "control_accept_variant_reject": 181,
+      "control_reject_variant_accept": 2,
+      "disagreement_rate": 0.1525,
+      "discordant_pairs": 183,
+      "exact_mcnemar_two_sided_p": 2.746663783192279e-51,
+      "paired_variant_minus_control_acceptance": -0.14916666666666667
+    },
+    "evidence_grade": "SYNTHETIC_CONTROLLED_SIMULATION_NOT_OPENAI_MODEL",
+    "filter_attribution_control": {
+      "filter_only_disagreement_delta": 0.019166666666666665,
+      "max_absolute_generator_score_change_between_filter_arms": 0.0
+    },
+    "filter_only_G0_F1": {
+      "control_accept_variant_reject": 102,
+      "control_reject_variant_accept": 20,
+      "disagreement_rate": 0.10166666666666667,
+      "discordant_pairs": 122,
+      "exact_mcnemar_two_sided_p": 1.9641987858977157e-14,
+      "paired_variant_minus_control_acceptance": -0.06833333333333333
+    },
+    "fixed_base_filter_threshold": 0.5,
+    "generator_only_G1_F0": {
+      "control_accept_variant_reject": 102,
+      "control_reject_variant_accept": 20,
+      "disagreement_rate": 0.10166666666666667,
+      "discordant_pairs": 122,
+      "exact_mcnemar_two_sided_p": 1.9641987858977157e-14,
+      "paired_variant_minus_control_acceptance": -0.06833333333333333
+    },
+    "injected_filter_presentation_penalty": 0.08,
+    "injected_generator_score_penalty": 0.08,
+    "interpretation": "Positive controls demonstrate detection and source attribution by frozen scores; not a measurement of any live model or filter",
+    "n_paired_tasks": 1200,
+    "no_injected_effect_G0_F0": {
+      "control_accept_variant_reject": 47,
+      "control_reject_variant_accept": 52,
+      "disagreement_rate": 0.0825,
+      "discordant_pairs": 99,
+      "exact_mcnemar_two_sided_p": 0.6878853435796911,
+      "paired_variant_minus_control_acceptance": 0.004166666666666667
+    },
+    "random_seed": 20261009,
+    "randomized_presentation_order_balanced": [
+      610,
+      590
+    ]
+  }
+}
