@@ -1,0 +1,149 @@
+{
+  "archive": {
+    "bytes": 69953,
+    "filename": "genesis-integrity-capture.tar.gz",
+    "format": "deterministic tar.gz",
+    "sha256": "5664663da5c4ca437602c9d5e972f06c9cffac7aae7fda775ea05ba81b83a963"
+  },
+  "branch": "audit/genesis-integrity-capture-20261009",
+  "capture_id": "OPENAI-MATH-GENESIS-INTEGRITY-20261009",
+  "captured_content": [
+    "kernel-probe parser correction and hostile tests",
+    "Landau-Siegel audit-wave receipts",
+    "external-overlap correction",
+    "theorem dependency projection",
+    "quasi-Riemann patched-dependency and import-minimization reviews",
+    "Landau-Siegel statement bridge candidate",
+    "analytic route contradiction/subsingleton review",
+    "Comparator closure-parser hardening",
+    "metaprogramming-surface calibration",
+    "theorem-closure interpretation projections"
+  ],
+  "effect_class": "AUDIT_ONLY_DO_NOT_MERGE_TO_MIRROR_MAIN",
+  "frozen_upstream_revision": "fd4aeeb2ee4fc729c18d98444fed42fd0529eeeb",
+  "owner_issues": [
+    "#2",
+    "#5",
+    "#10",
+    "#11",
+    "#13",
+    "#14",
+    "#22",
+    "#39",
+    "#40",
+    "#43"
+  ],
+  "owner_prs": [
+    "#41",
+    "#42",
+    "#49"
+  ],
+  "parts": [
+    {
+      "decoded_bytes": 32768,
+      "decoded_sha256": "ca26c417972950898da10400a95034824ca992cc92355ca15edec265aa256c89",
+      "name": "genesis-integrity-capture.tar.gz.part-000",
+      "segments": [
+        {
+          "encoded_bytes": 12001,
+          "path": "archive-segments/genesis-integrity-capture.tar.gz.part-000.b64.seg-00",
+          "sha256": "3aa08f83bbc22b5ea1e917592c66993c8306ad42316d95fc04fb926a6f5c89af"
+        },
+        {
+          "encoded_bytes": 12001,
+          "path": "archive-segments/genesis-integrity-capture.tar.gz.part-000.b64.seg-01",
+          "sha256": "8c837e62c74566265f0639cf6de5bb15dac023d763ec26516aea16584a776ed7"
+        },
+        {
+          "encoded_bytes": 3001,
+          "path": "archive-segments/genesis-integrity-capture.tar.gz.part-000.b64.seg-02.frag-00",
+          "sha256": "8ef21b966f03761d7781d9fbe84c04fb93a0359196ad82dd227f3e116e8898df"
+        },
+        {
+          "encoded_bytes": 3001,
+          "path": "archive-segments/genesis-integrity-capture.tar.gz.part-000.b64.seg-02.frag-01",
+          "sha256": "e23131335ddf315a854a4fae5c453ffe6a8091eb8514f65e55f129f97763ad98"
+        },
+        {
+          "encoded_bytes": 3001,
+          "path": "archive-segments/genesis-integrity-capture.tar.gz.part-000.b64.seg-02.frag-02",
+          "sha256": "25d015ec25b6c9dfd396d45323d8774a10f16cae1b4bf382e2e60238dcc3c067"
+        },
+        {
+          "encoded_bytes": 2845,
+          "path": "archive-segments/genesis-integrity-capture.tar.gz.part-000.b64.seg-02.frag-03",
+          "sha256": "c0476c922cf8568726a3d189075195d03a43d1745751913201cbf7f08eb4099a"
+        },
+        {
+          "encoded_bytes": 8267,
+          "path": "archive-segments/genesis-integrity-capture.tar.gz.part-000.b64.seg-03",
+          "sha256": "90b585d5ec97c08641a520eca2aaabec41ba507b53ee5fa500835c220c1d1b1e"
+        }
+      ]
+    },
+    {
+      "decoded_bytes": 32768,
+      "decoded_sha256": "87c3c4a8138838ac10d2eaf5c4d5360af9662e8f87dd5557df05c4575dea6efd",
+      "name": "genesis-integrity-capture.tar.gz.part-001",
+      "segments": [
+        {
+          "encoded_bytes": 12001,
+          "path": "archive-segments/genesis-integrity-capture.tar.gz.part-001.b64.seg-00",
+          "sha256": "ae611260af2fff9102d457d647cc8dbce0ec911610e15ae7f2ef25d6ec99577b"
+        },
+        {
+          "encoded_bytes": 12001,
+          "path": "archive-segments/genesis-integrity-capture.tar.gz.part-001.b64.seg-01",
+          "sha256": "e1b24fde4d2de6bd784f13f182c063e2bf872b7f27ddde94a0e94444c600c6b9"
+        },
+        {
+          "encoded_bytes": 3001,
+          "path": "archive-segments/genesis-integrity-capture.tar.gz.part-001.b64.seg-02.frag-00",
+          "sha256": "14f0ac777ccb76c057ff1a9a74680b5620eed4152666c0b916da3956aedf3b3f"
+        },
+        {
+          "encoded_bytes": 3001,
+          "path": "archive-segments/genesis-integrity-capture.tar.gz.part-001.b64.seg-02.frag-01",
+          "sha256": "a7d6e2188feb0fd2f463981d4a7f3b693b342f20c772157c0168cd2896a603e9"
+        },
+        {
+          "encoded_bytes": 3001,
+          "path": "archive-segments/genesis-integrity-capture.tar.gz.part-001.b64.seg-02.frag-02",
+          "sha256": "441f0c9d6dab5371d13af6d04e0586285ccb2674ff4c4c830457560e229387c7"
+        },
+        {
+          "encoded_bytes": 2845,
+          "path": "archive-segments/genesis-integrity-capture.tar.gz.part-001.b64.seg-02.frag-03",
+          "sha256": "904f1b4507246a6ef8e8cba733b2b2c093a5cf4530f27d38d2385e3973925bd7"
+        },
+        {
+          "encoded_bytes": 8267,
+          "path": "archive-segments/genesis-integrity-capture.tar.gz.part-001.b64.seg-03",
+          "sha256": "e36b94c387972c10e4f9f446934adea6fd8cd3279747a882350de0634a5dc4a7"
+        }
+      ]
+    },
+    {
+      "decoded_bytes": 4417,
+      "decoded_sha256": "c412cc4568c161403eb4ec14ebffb424ab9567fd056b614afc645238fc61c0d2",
+      "name": "genesis-integrity-capture.tar.gz.part-002",
+      "segments": [
+        {
+          "encoded_bytes": 5970,
+          "path": "archive-segments/genesis-integrity-capture.tar.gz.part-002.b64.seg-00",
+          "sha256": "c4a7ae15d95185c3f27beab53dadf45ed2e8ac70db1de39edcdd15a37e3b2adb"
+        }
+      ]
+    }
+  ],
+  "repository": "grwtsk/openai-math",
+  "schema_version": "GenesisIntegrityArchiveCapture/4",
+  "segment_whitespace_policy": "Archive base64 is split into LF-terminated text fragments. Reconstruction concatenates the fragments and removes ASCII whitespace before base64 decoding.",
+  "status": {
+    "correction_patches_applied_to_owner_branches": false,
+    "mirror_main_modified": false,
+    "new_comparator_or_independent_kernel_claim": false,
+    "prior_failed_receipts_rewritten": false,
+    "statement_bridge_replayed": false
+  }
+}
