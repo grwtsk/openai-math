@@ -1,0 +1,210 @@
+name: Kaplansky prescribed-witness probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - audit/kaplansky-witness-probe-20261009
+    paths:
+      - audit/lean/KaplanskyWitnessProbe.lean
+      - audit/tools/kaplansky_probe_receipt.py
+      - audit/tools/test_kaplansky_probe_receipt.py
+      - .github/workflows/kaplansky-witness-probe.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - audit/lean/KaplanskyWitnessProbe.lean
+      - audit/tools/kaplansky_probe_receipt.py
+      - audit/tools/test_kaplansky_probe_receipt.py
+      - .github/workflows/kaplansky-witness-probe.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kaplansky-witness-probe-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  prescribed-witness-chain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      BASE_REVISION: fd4aeeb2ee4fc729c18d98444fed42fd0529eeeb
+      REPORT_DIR: audit/reports/openai-math-fd4aeeb2ee4f
+      GLIBC_TUNABLES: glibc.malloc.mmap_max=0:glibc.malloc.arena_max=1
+    steps:
+      - name: Check out exact audit candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Record candidate, frozen source, and witness-chain identities
+        run: |
+          set -euo pipefail
+          mkdir -p "$REPORT_DIR"
+          git merge-base --is-ancestor "$BASE_REVISION" HEAD
+          git rev-parse HEAD | tee "$REPORT_DIR/audit-head.txt"
+          git rev-parse HEAD^{tree} | tee "$REPORT_DIR/audit-tree.txt"
+          git rev-parse HEAD:lean | tee "$REPORT_DIR/audit-lean-tree.txt"
+          git rev-parse "$BASE_REVISION"^{tree} | tee "$REPORT_DIR/frozen-tree.txt"
+          git rev-parse "$BASE_REVISION":lean | tee "$REPORT_DIR/frozen-lean-tree.txt"
+          sha256sum \
+            lean/OAI/RingTheory/DirectFiniteness/Main.lean \
+            lean/OAI/RingTheory/DirectFiniteness/FinitelyPresented.lean \
+            lean/OAI/RingTheory/DirectFiniteness/PrescribedOutputs.lean \
+            lean/OAI/RingTheory/DirectFiniteness/PrescribedPresentation.lean \
+            lean/OAI/RingTheory/DirectFiniteness/OddTorsion.lean \
+            lean/OAI/RingTheory/DirectFiniteness/PrescribedData.lean \
+            lean/OAI/RingTheory/DirectFiniteness/PrescribedSearch.lean \
+            lean/OAI/RingTheory/DirectFiniteness/PrescribedIncidence.lean \
+            lean/OAI/RingTheory/DirectFiniteness/PrescribedParameters.lean \
+            lean/OAI/RingTheory/DirectFiniteness/FiniteParameters.lean \
+            lean/OAI/RingTheory/DirectFiniteness/PrimeCertificate.lean \
+            lean/OAI/RingTheory/DirectFiniteness/ChosenCriterion.lean \
+            lean/ComparatorChallenges/KaplanskyDirectFiniteness.json \
+            lean/ComparatorChallenges/KaplanskyFinitelyPresented.json \
+            audit/lean/KaplanskyWitnessProbe.lean \
+            audit/tools/kaplansky_probe_receipt.py \
+            .github/workflows/kaplansky-witness-probe.yml \
+            | tee "$REPORT_DIR/kaplansky-source-sha256.txt"
+
+      - name: Run hostile receipt tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v audit/tools/test_kaplansky_probe_receipt.py
+
+      - name: Install exact Lean toolchain
+        id: lean_setup
+        continue-on-error: true
+        uses: leanprover/lean-action@f061402b660e0c34644504b324e830f2991d4865
+        with:
+          auto-config: false
+          build: false
+          test: false
+          lint: false
+          use-mathlib-cache: false
+          use-github-cache: false
+          lake-package-directory: lean
+
+      - name: Resolve frozen Lake environment
+        id: lake_update
+        if: always()
+        run: |
+          set +e
+          set -o pipefail
+          (cd lean && lake update) 2>&1 | tee "$REPORT_DIR/kaplansky-lake-update.log"
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Verify committed and worktree Lean source identity
+        id: source_identity
+        if: always()
+        run: |
+          set +e
+          audit_lean_tree=$(git rev-parse HEAD:lean)
+          frozen_lean_tree=$(git rev-parse "$BASE_REVISION":lean)
+          status=0
+          if test "$audit_lean_tree" != "$frozen_lean_tree"; then status=1; fi
+          if ! git diff --quiet "$BASE_REVISION" -- lean; then status=1; fi
+          git diff -- lean > "$REPORT_DIR/kaplansky-frozen-lean-worktree.diff"
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Fetch named Mathlib cache input
+        id: cache
+        if: always()
+        run: |
+          set +e
+          set -o pipefail
+          (cd lean && lake exe cache get) 2>&1 | tee "$REPORT_DIR/kaplansky-cache-get.log"
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Build exact finite-presentation solution module
+        id: build
+        if: always()
+        run: |
+          set +e
+          set -o pipefail
+          (cd lean && lake build OAI.RingTheory.DirectFiniteness.FinitelyPresented) \
+            2>&1 | tee "$REPORT_DIR/kaplansky-finitely-presented-build.log"
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Run theorem, certificate, and witness probe
+        id: probe
+        if: always()
+        run: |
+          set +e
+          set -o pipefail
+          (cd lean && lake env lean ../audit/lean/KaplanskyWitnessProbe.lean) \
+            2>&1 | tee "$REPORT_DIR/kaplansky-witness-probe.log"
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Generate prescribed-witness receipt
+        id: receipt
+        if: always()
+        run: |
+          set +e
+          frozen_tree=$(git rev-parse "$BASE_REVISION"^{tree})
+          frozen_lean_tree=$(git rev-parse "$BASE_REVISION":lean)
+          audit_head=$(git rev-parse HEAD)
+          audit_tree=$(git rev-parse HEAD^{tree})
+          audit_lean_tree=$(git rev-parse HEAD:lean)
+          toolchain=$(tr -d '\r\n' < lean/lean-toolchain)
+          log="$REPORT_DIR/kaplansky-witness-probe.log"
+          test -f "$log" || : > "$log"
+          python3 audit/tools/kaplansky_probe_receipt.py \
+            --log "$log" \
+            --output-dir "$REPORT_DIR" \
+            --frozen-base-revision "$BASE_REVISION" \
+            --frozen-base-tree "$frozen_tree" \
+            --frozen-lean-tree "$frozen_lean_tree" \
+            --audit-head-commit "$audit_head" \
+            --audit-head-tree "$audit_tree" \
+            --audit-lean-tree "$audit_lean_tree" \
+            --lean-toolchain "$toolchain" \
+            2>&1 | tee "$REPORT_DIR/kaplansky-receipt.console.log"
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Publish accessible report
+        if: always()
+        run: |
+          report="$REPORT_DIR/kaplansky-witness-probe.md"
+          if test -f "$report"; then
+            cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "The theorem probe did not produce its Markdown report." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload immutable evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: kaplansky-witness-probe-${{ github.event.pull_request.head.sha || github.sha }}
+          path: audit/reports/openai-math-fd4aeeb2ee4f/
+          if-no-files-found: error
+          retention-days: 90
+          include-hidden-files: false
+
+      - name: Enforce prescribed-witness boundary
+        if: always()
+        run: |
+          set -euo pipefail
+          test "${{ steps.lean_setup.outcome }}" = success
+          test "${{ steps.lake_update.outputs.exit_code }}" = 0
+          test "${{ steps.source_identity.outputs.exit_code }}" = 0
+          test "${{ steps.build.outputs.exit_code }}" = 0
+          test "${{ steps.probe.outputs.exit_code }}" = 0
+          test "${{ steps.receipt.outputs.exit_code }}" = 0
