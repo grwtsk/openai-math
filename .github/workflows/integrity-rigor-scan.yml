@@ -1,0 +1,81 @@
+name: Integrity and rigor scan
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - audit/integrity-rigor-scan-20261009
+    paths:
+      - audit/tools/integrity_rigor_scan.py
+      - audit/tools/test_integrity_rigor_scan.py
+      - .github/workflows/integrity-rigor-scan.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - audit/tools/integrity_rigor_scan.py
+      - audit/tools/test_integrity_rigor_scan.py
+      - .github/workflows/integrity-rigor-scan.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  # A push to the audit branch and its pull_request event represent the same
+  # candidate. Use the head branch name for both so only one expensive
+  # whole-corpus traversal survives.
+  group: integrity-rigor-scan-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  static-integrity-scan:
+    runs-on: ubuntu-24.04
+    # The frozen tree contains more than 122,000 Lean files. The prior
+    # 45-minute ceiling terminated the scanner during normal traversal and
+    # produced no receipt; cancellation is operational, not mathematical.
+    timeout-minutes: 120
+    steps:
+      - name: Check out exact candidate head
+        # actions/checkout v7.0.1, pinned rather than using a moving tag.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Record runtime and source identities
+        run: |
+          set -euo pipefail
+          python3 --version
+          git --version
+          git rev-parse HEAD
+          git rev-parse HEAD^{tree}
+          git rev-parse fd4aeeb2ee4fc729c18d98444fed42fd0529eeeb^{tree}
+          sha256sum .github/workflows/integrity-rigor-scan.yml
+          sha256sum audit/tools/integrity_rigor_scan.py
+          sha256sum audit/tools/test_integrity_rigor_scan.py
+          cat /etc/os-release
+          uname -a
+
+      - name: Run hostile scanner tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v audit/tools/test_integrity_rigor_scan.py
+
+      - name: Run deterministic scanner
+        run: |
+          set -euo pipefail
+          python3 audit/tools/integrity_rigor_scan.py | tee /tmp/integrity-scan-summary.json
+
+      - name: Add human-readable report to job summary
+        run: cat audit/reports/openai-math-fd4aeeb2ee4f/integrity-scan.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload immutable report artifact
+        # actions/upload-artifact v7.0.2, pinned rather than using a moving tag.
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: openai-math-integrity-scan-fd4aeeb2ee4f-${{ github.event.pull_request.head.sha || github.sha }}
+          path: audit/reports/openai-math-fd4aeeb2ee4f/
+          if-no-files-found: error
+          retention-days: 90
+          include-hidden-files: false
